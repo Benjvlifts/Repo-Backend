@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnaliticaService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ms-analitica</a> &gt; <a href="index.source.html" class="el_package">com.innovatech.analitica.service</a> &gt; <span class="el_source">AnaliticaService.java</span></div><h1>AnaliticaService.java</h1><pre class="source lang-java linenums">package com.innovatech.analitica.service;
+
+import com.innovatech.analitica.dto.ProjectEventDto;
+import com.innovatech.analitica.model.ProjectMetric;
+import com.innovatech.analitica.repository.ProjectMetricRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class AnaliticaService {
+
+    private final ProjectMetricRepository metricRepository;
+
+    @Transactional
+    public void processProjectEvent(ProjectEventDto event) {
+<span class="fc" id="L21">        ProjectMetric metric = metricRepository.findByProjectId(event.getProjectId())</span>
+<span class="fc" id="L22">                .orElse(ProjectMetric.builder()</span>
+<span class="fc" id="L23">                        .projectId(event.getProjectId())</span>
+<span class="fc" id="L24">                        .build());</span>
+
+<span class="fc bfc" id="L26" title="All 2 branches covered.">        metric.setProjectStatus(event.getStatus() != null ? event.getStatus() : metric.getProjectStatus());</span>
+<span class="pc bpc" id="L27" title="1 of 2 branches missed.">        metric.setCompletionPercentage(event.getCompletionPercentage() != null ? event.getCompletionPercentage() : metric.getCompletionPercentage());</span>
+<span class="pc bpc" id="L28" title="1 of 2 branches missed.">        metric.setActiveTasks(event.getActiveTasks() != null ? event.getActiveTasks() : metric.getActiveTasks());</span>
+<span class="fc" id="L29">        metric.setLastUpdated(LocalDateTime.now());</span>
+
+<span class="fc" id="L31">        metricRepository.save(metric);</span>
+<span class="fc" id="L32">    }</span>
+
+    public List&lt;ProjectMetric&gt; getGeneralMetrics() {
+<span class="fc" id="L35">        return metricRepository.findAll();</span>
+    }
+
+    public ProjectMetric getProjectMetrics(Long projectId) {
+<span class="fc" id="L39">        return metricRepository.findByProjectId(projectId)</span>
+<span class="fc" id="L40">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Métricas no encontradas para el proyecto ID: &quot; + projectId));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

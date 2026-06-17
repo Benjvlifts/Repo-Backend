@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Resource.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ms-recursos</a> &gt; <a href="index.source.html" class="el_package">com.innovatech.recursos.model</a> &gt; <span class="el_source">Resource.java</span></div><h1>Resource.java</h1><pre class="source lang-java linenums">package com.innovatech.recursos.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+/**
+ * Entidad Recurso — representa un profesional disponible en Innovatech.
+ * Patrón Repository: accedida exclusivamente a través de IResourceRepository.
+ *
+ * @author Benjamin Valdes, Ignacio Munoz
+ */
+@Entity
+@Table(name = &quot;resources&quot;,
+       uniqueConstraints = @UniqueConstraint(columnNames = &quot;email&quot;))
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Resource {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotBlank
+    @Column(nullable = false)
+    private String name;
+
+    @Email
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false)
+    private String department;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private ResourceRole role = ResourceRole.DEVELOPER;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean available = true;
+
+    private String skills;  // CSV: &quot;Java,Spring,React&quot;
+
+    @Column(name = &quot;assigned_project_id&quot;)
+    private Long assignedProjectId;
+
+    @Column(name = &quot;assigned_project_name&quot;)
+    private String assignedProjectName;
+
+    @Column(name = &quot;created_at&quot;, updatable = false)
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = &quot;updated_at&quot;)
+    private LocalDateTime updatedAt;
+
+    @PreUpdate
+    protected void onUpdate() {
+<span class="nc" id="L66">        this.updatedAt = LocalDateTime.now();</span>
+<span class="nc" id="L67">    }</span>
+
+<span class="fc" id="L69">    public enum ResourceRole {</span>
+<span class="fc" id="L70">        DEVELOPER, DESIGNER, QA, DEVOPS, MANAGER, CONSULTANT</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,11 @@
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\config\GlobalExceptionHandler.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\config\SecurityConfig.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\controller\ResourceController.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\dto\ResourceDtos.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\messaging\ProjectEventConsumer.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\messaging\ProjectEventMessage.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\model\Resource.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\MsRecursosApplication.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\repository\IResourceRepository.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\repository\JpaResourceRepository.java
+C:\Users\Administrator\Desktop\Fullstack-Inovatech\Repo-Backend\ms-recursos\src\main\java\com\innovatech\recursos\service\ResourceService.java

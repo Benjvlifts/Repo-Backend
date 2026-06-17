@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProjectEventConsumer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ms-recursos</a> &gt; <a href="index.source.html" class="el_package">com.innovatech.recursos.messaging</a> &gt; <span class="el_source">ProjectEventConsumer.java</span></div><h1>ProjectEventConsumer.java</h1><pre class="source lang-java linenums">package com.innovatech.recursos.messaging;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+
+/**
+ * Consumidor Kafka — escucha eventos del topic &quot;innovatech.project.created&quot;.
+ * Cuando ms-proyectos crea un proyecto, ms-recursos recibe la notificación
+ * y puede tomar acciones (ej: marcar recursos como pre-asignados).
+ *
+ * PATRÓN: Event-Driven Architecture via Message Broker (Kafka).
+ * Desacopla completamente ms-proyectos de ms-recursos.
+ *
+ * @author Benjamin Valdes, Ignacio Munoz
+ */
+@Component
+@RequiredArgsConstructor
+<span class="fc" id="L20">@Slf4j</span>
+public class ProjectEventConsumer {
+
+    @KafkaListener(
+        topics = &quot;innovatech.project.created&quot;,
+        groupId = &quot;${spring.kafka.consumer.group-id}&quot;
+    )
+    public void consumeProjectCreated(ProjectEventMessage event) {
+<span class="nc" id="L28">        log.info(&quot;📨 [Kafka] Evento recibido en ms-recursos: proyecto '{}' (id={}, tipo={})&quot;,</span>
+<span class="nc" id="L29">            event.getProjectName(), event.getProjectId(), event.getType());</span>
+
+        // Aquí se puede implementar lógica de negocio:
+        // - Sugerir recursos disponibles según el tipo de proyecto
+        // - Notificar al manager (event.getManagerId())
+        // - Registrar el proyecto en el historial de recursos
+<span class="nc" id="L35">        log.info(&quot;✅ [Kafka] Evento procesado correctamente. Recursos disponibles listos para asignación.&quot;);</span>
+<span class="nc" id="L36">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
