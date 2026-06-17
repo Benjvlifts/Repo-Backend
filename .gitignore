@@ -1,0 +1,17 @@
+﻿# Maven - carpetas compiladas Java
+**/target/
+**/*.jar
+**/*.class
+
+# Node
+**/node_modules/
+
+# Variables de entorno
+**/.env
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos innecesarios
+repomix-output.xml
