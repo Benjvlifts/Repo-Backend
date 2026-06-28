@@ -1,75 +1,78 @@
 package com.innovatech.proyectos.config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.Base64;
+import javax.crypto.SecretKey;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Utilidad para extraer claims del token JWT sin depender de librerías adicionales.
- * Decodifica el payload Base64URL del JWT y parsea el JSON con Jackson (ya incluido en Spring Web).
- *
- * El JWT de ms-auth incluye: sub (email), role (ADMIN/MANAGER/EMPLOYEE), userId (Long), exp.
+ * FIX Bug 1: reemplaza decodificación manual de Base64 (sin verificación de firma)
+ * por verificación HMAC-SHA usando la clave compartida con ms-auth.
+ * Un JWT forjado con rol=ADMIN ahora es rechazado antes de llegar al controlador.
  */
+@Slf4j
 @Component
-@RequiredArgsConstructor
 public class JwtExtractor {
 
-    private final ObjectMapper objectMapper;
+    @Value("${app.jwt.secret}")
+    private String jwtSecret;
 
-    /**
-     * Extrae todos los claims del JWT a partir del encabezado Authorization.
-     * @param authHeader valor del header "Authorization: Bearer <token>"
-     * @return mapa con los claims, o mapa vacío si falla
-     */
-    public Map<String, Object> extractClaims(String authHeader) {
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
+    }
+
+    // ── Verificación de firma ─────────────────────────────────────────────────
+
+    public boolean isValidToken(String authHeader) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return Collections.emptyMap();
-            }
-            String token = authHeader.substring(7);
-            String[] parts = token.split("\\.");
-            if (parts.length < 2) return Collections.emptyMap();
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) return false;
+            Jwts.parser().verifyWith(getSigningKey()).build()
+                    .parseSignedClaims(authHeader.substring(7));
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("[JwtExtractor] Token inválido: {}", e.getMessage());
+            return false;
+        }
+    }
 
-            // Padding para Base64URL
-            String payload = parts[1];
-            int pad = 4 - payload.length() % 4;
-            if (pad != 4) payload = payload + "=".repeat(pad);
+    // ── Extracción de claims (solo si firma es válida) ────────────────────────
 
-            byte[] decoded = Base64.getUrlDecoder().decode(payload);
-            return objectMapper.readValue(decoded, new TypeReference<Map<String, Object>>() {});
+    public Map<String, Object> extractClaims(String authHeader) {
+        if (!isValidToken(authHeader)) return Collections.emptyMap();
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(getSigningKey()).build()
+                    .parseSignedClaims(authHeader.substring(7))
+                    .getPayload();
+            return new HashMap<>(claims);
         } catch (Exception e) {
+            log.warn("[JwtExtractor] Error extrayendo claims: {}", e.getMessage());
             return Collections.emptyMap();
         }
     }
 
-    /**
-     * Extrae el rol del usuario desde el JWT.
-     * @return "ADMIN", "MANAGER", "EMPLOYEE" o "" si no se puede extraer
-     */
     public String extractRole(String authHeader) {
         Object role = extractClaims(authHeader).get("role");
         return role != null ? role.toString() : "";
     }
 
-    /**
-     * Extrae el ID del usuario desde el JWT.
-     */
     public Long extractUserId(String authHeader) {
         Object userId = extractClaims(authHeader).get("userId");
-        if (userId instanceof Integer) return ((Integer) userId).longValue();
-        if (userId instanceof Long) return (Long) userId;
-        if (userId instanceof Number) return ((Number) userId).longValue();
+        if (userId instanceof Integer i) return i.longValue();
+        if (userId instanceof Long l)    return l;
+        if (userId instanceof Number n)  return n.longValue();
         return null;
     }
 
-    /**
-     * Extrae el nombre/email del usuario (subject del JWT).
-     */
     public String extractSubject(String authHeader) {
         Object sub = extractClaims(authHeader).get("sub");
         return sub != null ? sub.toString() : "";

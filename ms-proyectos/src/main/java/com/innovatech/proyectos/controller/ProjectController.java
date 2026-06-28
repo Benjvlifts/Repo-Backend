@@ -4,6 +4,11 @@ import com.innovatech.proyectos.config.JwtExtractor;
 import com.innovatech.proyectos.dto.ProjectDtos.*;
 import com.innovatech.proyectos.model.Project;
 import com.innovatech.proyectos.service.ProjectService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,6 +31,7 @@ import java.util.Map;
 @RequestMapping("/api/projects")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@Tag(name = "Proyectos", description = "Gestión de proyectos, asignación de empleados y notas de avance")
 public class ProjectController {
 
     private final ProjectService projectService;
@@ -38,6 +44,11 @@ public class ProjectController {
      * Solo ADMIN puede crear proyectos.
      */
     @PostMapping
+    @Operation(summary = "Crear proyecto", description = "Crea un nuevo proyecto. Solo accesible para usuarios con rol ADMIN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Proyecto creado correctamente"),
+            @ApiResponse(responseCode = "403", description = "El usuario no tiene rol ADMIN")
+    })
     public ResponseEntity<?> createProject(
             @Valid @RequestBody CreateProjectRequest request,
             @RequestHeader("Authorization") String authHeader) {
@@ -57,8 +68,11 @@ public class ProjectController {
      * - EMPLOYEE: solo sus proyectos asignados
      */
     @GetMapping
+    @Operation(summary = "Listar proyectos", description = "ADMIN/MANAGER ven todos los proyectos (con filtros opcionales por estado o tipo). EMPLOYEE solo ve sus proyectos asignados.")
     public ResponseEntity<List<ProjectResponse>> getAllProjects(
+            @Parameter(description = "Filtra por estado del proyecto (ej. IN_PROGRESS, COMPLETED)")
             @RequestParam(required = false) String status,
+            @Parameter(description = "Filtra por tipo de proyecto (ej. SOFTWARE, CONSULTING, INFRASTRUCTURE)")
             @RequestParam(required = false) String type,
             @RequestHeader("Authorization") String authHeader) {
 
@@ -82,6 +96,11 @@ public class ProjectController {
      * GET /api/projects/{id}
      */
     @GetMapping("/{id}")
+    @Operation(summary = "Obtener proyecto por ID", description = "Retorna el detalle de un proyecto específico.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Proyecto encontrado"),
+            @ApiResponse(responseCode = "404", description = "Proyecto no encontrado")
+    })
     public ResponseEntity<ProjectResponse> getProjectById(@PathVariable Long id) {
         return ResponseEntity.ok(projectService.getProjectById(id));
     }
@@ -90,6 +109,7 @@ public class ProjectController {
      * GET /api/projects/manager/{managerId}
      */
     @GetMapping("/manager/{managerId}")
+    @Operation(summary = "Listar proyectos por manager", description = "Retorna los proyectos asociados a un manager específico.")
     public ResponseEntity<List<ProjectResponse>> getByManager(@PathVariable Long managerId) {
         return ResponseEntity.ok(projectService.getProjectsByManager(managerId));
     }
@@ -101,6 +121,11 @@ public class ProjectController {
      * ADMIN: edita nombre, descripción y/o estado de un proyecto.
      */
     @PutMapping("/{id}")
+    @Operation(summary = "Actualizar proyecto", description = "Edita nombre, descripción y/o estado de un proyecto. Solo ADMIN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Proyecto actualizado"),
+            @ApiResponse(responseCode = "403", description = "El usuario no tiene rol ADMIN")
+    })
     public ResponseEntity<?> updateProject(
             @PathVariable Long id,
             @RequestBody UpdateProjectRequest request,
@@ -117,6 +142,11 @@ public class ProjectController {
      * ADMIN: cambia el estado de un proyecto.
      */
     @PatchMapping("/{id}/status")
+    @Operation(summary = "Cambiar estado del proyecto", description = "Actualiza únicamente el estado de un proyecto. Solo ADMIN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Estado actualizado"),
+            @ApiResponse(responseCode = "403", description = "El usuario no tiene rol ADMIN")
+    })
     public ResponseEntity<?> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStatusRequest request,
@@ -136,6 +166,11 @@ public class ProjectController {
      * El empleado debe existir en ms-auth con rol EMPLOYEE.
      */
     @PatchMapping("/{id}/assign")
+    @Operation(summary = "Asignar empleado a un proyecto", description = "Asigna un empleado (existente en ms-auth con rol EMPLOYEE) a un proyecto. ADMIN o MANAGER.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Empleado asignado correctamente"),
+            @ApiResponse(responseCode = "403", description = "El usuario no tiene rol ADMIN o MANAGER")
+    })
     public ResponseEntity<?> assignEmployee(
             @PathVariable Long id,
             @Valid @RequestBody AssignEmployeeRequest request,
@@ -152,6 +187,11 @@ public class ProjectController {
      * ADMIN o MANAGER: desasigna el empleado del proyecto.
      */
     @DeleteMapping("/{id}/assign")
+    @Operation(summary = "Desasignar empleado de un proyecto", description = "Quita la asignación de empleado de un proyecto. ADMIN o MANAGER.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Empleado desasignado correctamente"),
+            @ApiResponse(responseCode = "403", description = "El usuario no tiene rol ADMIN o MANAGER")
+    })
     public ResponseEntity<?> unassignEmployee(
             @PathVariable Long id,
             @RequestHeader("Authorization") String authHeader) {
@@ -169,6 +209,11 @@ public class ProjectController {
      * ADMIN: elimina un proyecto.
      */
     @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar proyecto", description = "Elimina un proyecto de forma permanente. Solo ADMIN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Proyecto eliminado"),
+            @ApiResponse(responseCode = "403", description = "El usuario no tiene rol ADMIN")
+    })
     public ResponseEntity<?> deleteProject(
             @PathVariable Long id,
             @RequestHeader("Authorization") String authHeader) {
@@ -188,6 +233,11 @@ public class ProjectController {
      * La nota queda en estado PENDING hasta que Admin/Manager la revise.
      */
     @PostMapping("/{id}/notes")
+    @Operation(summary = "Agregar nota de avance", description = "Agrega una nota de avance a un proyecto. Queda en estado PENDING hasta su revisión.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Nota creada correctamente"),
+            @ApiResponse(responseCode = "403", description = "Token inválido")
+    })
     public ResponseEntity<?> addNote(
             @PathVariable Long id,
             @Valid @RequestBody CreateNoteRequest request,
@@ -209,6 +259,7 @@ public class ProjectController {
      * Todos los roles: obtiene las notas de un proyecto.
      */
     @GetMapping("/{id}/notes")
+    @Operation(summary = "Listar notas de un proyecto", description = "Retorna todas las notas de avance asociadas a un proyecto.")
     public ResponseEntity<List<NoteResponse>> getNotes(@PathVariable Long id) {
         return ResponseEntity.ok(projectService.getNotesByProject(id));
     }
@@ -218,7 +269,14 @@ public class ProjectController {
      * ADMIN o MANAGER: aprueba o rechaza una nota de avance.
      * Flujo similar a aprobar/rechazar un Pull Request en GitHub.
      */
-    @PatchMapping("/{id}/notes/{noteId}/review")
+        @PatchMapping("/{id}/notes/{noteId}/review")
+    @Operation(summary = "Revisar nota de avance",
+               description = "Aprueba o rechaza una nota. ADMIN revisa cualquier proyecto; MANAGER solo los que gestiona.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Nota revisada correctamente"),
+            @ApiResponse(responseCode = "403", description = "El usuario no tiene rol ADMIN o MANAGER"),
+            @ApiResponse(responseCode = "400", description = "Manager sin acceso a este proyecto")
+    })
     public ResponseEntity<?> reviewNote(
             @PathVariable Long id,
             @PathVariable Long noteId,
@@ -229,16 +287,18 @@ public class ProjectController {
             return forbidden("Solo administradores y managers pueden revisar notas");
         }
 
-        Long reviewerId = jwtExtractor.extractUserId(authHeader);
+        Long reviewerId   = jwtExtractor.extractUserId(authHeader);
         String reviewerName = jwtExtractor.extractSubject(authHeader);
+        String reviewerRole = jwtExtractor.extractRole(authHeader); // FIX Bug 8
 
         return ResponseEntity.ok(
-                projectService.reviewNote(id, noteId, request, reviewerId, reviewerName));
+                projectService.reviewNote(id, noteId, request, reviewerId, reviewerName, reviewerRole));
     }
 
     // ── Health ────────────────────────────────────────────────────────────────
 
     @GetMapping("/health")
+    @Operation(summary = "Estado del servicio", description = "Endpoint de health check de ms-proyectos.")
     public ResponseEntity<Map<String, Object>> health() {
         return ResponseEntity.ok(Map.of(
                 "status", "UP",

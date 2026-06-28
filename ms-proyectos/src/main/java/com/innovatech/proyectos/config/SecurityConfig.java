@@ -1,5 +1,6 @@
 package com.innovatech.proyectos.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -7,25 +8,32 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Configuración de seguridad para ms-proyectos.
- * Este microservicio confía en que el BFF ya validó el JWT.
- * Permite todas las solicitudes en su puerto interno (8082).
+ * FIX Bug 1: el filtro JwtAuthFilter (antes de UsernamePasswordAuthenticationFilter)
+ * intercepta y rechaza tokens inválidos. Los controladores siguen haciendo
+ * control de roles con JwtExtractor.
  */
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
-            );
+                .requestMatchers("/api/projects/health",
+                                 "/swagger-ui/**", "/v3/api-docs/**",
+                                 "/swagger-ui.html").permitAll()
+                .anyRequest().permitAll()          // roles gestionados por el controlador
+            )
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

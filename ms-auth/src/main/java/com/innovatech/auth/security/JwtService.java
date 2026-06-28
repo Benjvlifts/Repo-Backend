@@ -3,6 +3,7 @@ package com.innovatech.auth.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -12,12 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-/**
- * Servicio de generación y validación de tokens JWT.
- * Utilizado por AuthService para emitir tokens tras autenticación exitosa.
- *
- * @author Benjamin Valdes, Ignacio Munoz
- */
+@Slf4j
 @Service
 public class JwtService {
 
@@ -26,8 +22,6 @@ public class JwtService {
 
     @Value("${app.jwt.expiration-ms}")
     private long jwtExpirationMs;
-
-    // ── Generación ───────────────────────────────────────────────────────────
 
     public String generateToken(String email, String role, Long userId) {
         Map<String, Object> claims = new HashMap<>();
@@ -46,13 +40,12 @@ public class JwtService {
                 .compact();
     }
 
-    // ── Validación ───────────────────────────────────────────────────────────
-
     public boolean isTokenValid(String token) {
         try {
             Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(token);
             return !isTokenExpired(token);
         } catch (JwtException | IllegalArgumentException e) {
+            log.warn("Token inválido: {}", e.getMessage());
             return false;
         }
     }
@@ -91,9 +84,7 @@ public class JwtService {
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(
-                java.util.Base64.getEncoder().encodeToString(jwtSecret.getBytes())
-        );
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

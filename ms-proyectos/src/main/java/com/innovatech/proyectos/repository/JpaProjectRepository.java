@@ -13,4 +13,6 @@ public interface JpaProjectRepository extends JpaRepository<Project, Long>, IPro
     List<Project> findByType(Project.ProjectType type);
     @Override
     List<Project> findByManagerId(Long managerId);
+    @Override
+    List<Project> findByAssignedUserId(Long assignedUserId);
 }

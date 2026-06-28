@@ -10,6 +10,7 @@ public interface IProjectRepository {
     List<Project> findByStatus(Project.ProjectStatus status);
     List<Project> findByType(Project.ProjectType type);
     List<Project> findByManagerId(Long managerId);
+    List<Project> findByAssignedUserId(Long assignedUserId);
     Project save(Project project);
     void deleteById(Long id);
     boolean existsById(Long id);

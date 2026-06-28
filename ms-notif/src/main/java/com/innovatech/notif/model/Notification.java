@@ -12,21 +12,23 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class Notification {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private Long targetId; // ID del Proyecto o Usuario al que aplica
+    private Long targetId;
 
     @Column(nullable = false)
-    private String targetType; // ej. "PROJECT", "USER"
+    private String targetType;
 
     @Column(nullable = false, length = 500)
     private String message;
 
-    @Column(nullable = false)
-    private boolean isRead;
+    @Column(name = "is_read", nullable = false)
+    @Builder.Default
+    private Boolean read = false;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;

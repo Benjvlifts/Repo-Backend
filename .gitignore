@@ -1,4 +1,4 @@
-﻿# Maven - carpetas compiladas Java
+# Maven - carpetas compiladas Java
 **/target/
 **/*.jar
 **/*.class

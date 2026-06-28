@@ -1,37 +1,39 @@
 package com.innovatech.recursos.messaging;
 
+import com.innovatech.recursos.service.ResourceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Consumidor Kafka — escucha eventos del topic "innovatech.project.created".
- * Cuando ms-proyectos crea un proyecto, ms-recursos recibe la notificación
- * y puede tomar acciones (ej: marcar recursos como pre-asignados).
- *
- * PATRÓN: Event-Driven Architecture via Message Broker (Kafka).
- * Desacopla completamente ms-proyectos de ms-recursos.
- *
- * @author Benjamin Valdes, Ignacio Munoz
+ * FIX Bug 3: implementa lógica de negocio real.
+ * Cuando ms-proyectos publica un evento con status=COMPLETED,
+ * este consumidor libera automáticamente los recursos asignados.
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class ProjectEventConsumer {
 
+    private final ResourceService resourceService;
+
     @KafkaListener(
         topics = "innovatech.project.created",
         groupId = "${spring.kafka.consumer.group-id}"
     )
     public void consumeProjectCreated(ProjectEventMessage event) {
-        log.info("📨 [Kafka] Evento recibido en ms-recursos: proyecto '{}' (id={}, tipo={})",
-            event.getProjectName(), event.getProjectId(), event.getType());
+        log.info("📨 [Kafka] Evento recibido: proyecto='{}' (id={}, tipo={}, estado={})",
+            event.getProjectName(), event.getProjectId(), event.getType(), event.getStatus());
 
-        // Aquí se puede implementar lógica de negocio:
-        // - Sugerir recursos disponibles según el tipo de proyecto
-        // - Notificar al manager (event.getManagerId())
-        // - Registrar el proyecto en el historial de recursos
-        log.info("✅ [Kafka] Evento procesado correctamente. Recursos disponibles listos para asignación.");
+        if ("COMPLETED".equalsIgnoreCase(event.getStatus())) {
+            // FIX: libera automáticamente la capacidad cuando un proyecto finaliza
+            int released = resourceService.releaseByProject(event.getProjectId());
+            log.info("✅ [Kafka] {} recurso(s) liberado(s) — proyecto id={} completado.",
+                released, event.getProjectId());
+        } else {
+            log.info("ℹ️  [Kafka] Evento '{}' procesado. Estado: {}. Sin acción de capacidad requerida.",
+                event.getProjectName(), event.getStatus());
+        }
     }
 }

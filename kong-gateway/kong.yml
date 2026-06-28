@@ -1,38 +1,33 @@
 _format_version: "3.0"
 _transform: true
 
-# ═══════════════════════════════════════════════════════════════
-#  KONG GATEWAY — Innovatech Solutions
-#  Modo: DB-less (declarativo)
-#  Puerto proxy: 8000
-#  JWT Secret = mismo que ms-auth (app.jwt.secret)
-# ═══════════════════════════════════════════════════════════════
-
-# ── SERVICIOS (backends reales) ──────────────────────────────────
 services:
-
-  # ms-auth (puerto 8081)
   - name: ms-auth-service
     url: http://host.docker.internal:8081
     connect_timeout: 5000
     read_timeout: 8000
 
-  # ms-proyectos (puerto 8082)
   - name: ms-proyectos-service
     url: http://host.docker.internal:8082
     connect_timeout: 5000
     read_timeout: 8000
 
-  # ms-recursos (puerto 8083)
   - name: ms-recursos-service
     url: http://host.docker.internal:8083
     connect_timeout: 5000
     read_timeout: 8000
 
-# ── RUTAS ────────────────────────────────────────────────────────
-routes:
+  - name: ms-analitica-service
+    url: http://host.docker.internal:8084
+    connect_timeout: 5000
+    read_timeout: 10000
 
-  # AUTH — Rutas públicas (sin JWT)
+  - name: ms-notif-service
+    url: http://host.docker.internal:8085
+    connect_timeout: 5000
+    read_timeout: 8000
+
+routes:
   - name: auth-login
     service: ms-auth-service
     paths: ["/api/auth/login"]
@@ -45,38 +40,43 @@ routes:
     methods: ["POST"]
     strip_path: false
 
-  # AUTH — Rutas protegidas (con JWT)
   - name: auth-protected
     service: ms-auth-service
     paths: ["/api/auth"]
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
     strip_path: false
 
-  # PROYECTOS — Rutas protegidas
   - name: proyectos-all
     service: ms-proyectos-service
     paths: ["/api/projects"]
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
     strip_path: false
 
-  # RECURSOS — Rutas protegidas
   - name: recursos-all
     service: ms-recursos-service
     paths: ["/api/resources"]
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
     strip_path: false
 
-# ── PLUGINS GLOBALES ─────────────────────────────────────────────
-plugins:
+  - name: analitica-all
+    service: ms-analitica-service
+    paths: ["/api/v1/analitica"]
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    strip_path: false
 
-  # Rate Limiting global (100 req/min por IP)
+  - name: notif-all
+    service: ms-notif-service
+    paths: ["/api/v1/notificaciones"]
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    strip_path: false
+
+plugins:
   - name: rate-limiting
     config:
       minute: 100
       policy: local
       error_message: "Demasiadas solicitudes. Intente más tarde."
 
-  # Rate Limiting estricto solo para login (10 req/min por IP)
   - name: rate-limiting
     route: auth-login
     config:
@@ -84,43 +84,45 @@ plugins:
       policy: local
       error_message: "Demasiados intentos de login. Espera 1 minuto."
 
-  # JWT en rutas protegidas de auth
   - name: jwt
     route: auth-protected
     config:
       secret_is_base64: false
       claims_to_verify: ["exp"]
 
-  # JWT en proyectos
   - name: jwt
     route: proyectos-all
     config:
       secret_is_base64: false
       claims_to_verify: ["exp"]
 
-  # JWT en recursos
   - name: jwt
     route: recursos-all
     config:
       secret_is_base64: false
       claims_to_verify: ["exp"]
 
-  # CORS global
+  - name: jwt
+    route: analitica-all
+    config:
+      secret_is_base64: false
+      claims_to_verify: ["exp"]
+
+  - name: jwt
+    route: notif-all
+    config:
+      secret_is_base64: false
+      claims_to_verify: ["exp"]
+
   - name: cors
     config:
-      origins: ["http://localhost:5173", "http://localhost:3000"]
+      origins: ["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"]
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
       headers: ["Authorization", "Content-Type", "Accept"]
       exposed_headers: ["Authorization"]
       credentials: true
       max_age: 3600
 
-  # Request logging
-  - name: request-termination
-    route: auth-login
-    enabled: false  # Solo para debug, deshabilitado en producción
-
-# ── CONSUMIDOR JWT (para validación) ─────────────────────────────
 consumers:
   - username: innovatech-app
     jwt_secrets:

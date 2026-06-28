@@ -1,13 +1,18 @@
 package com.innovatech.proyectos;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.innovatech.proyectos.config.JwtExtractor;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Base64;
+import javax.crypto.SecretKey;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
@@ -21,30 +26,34 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("JwtExtractor — Pruebas Unitarias")
 class JwtExtractorTest {
 
+    // Mismo secreto Base64 que application-test.properties (app.jwt.secret)
+    private static final String TEST_SECRET = "5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437";
+
     private JwtExtractor jwtExtractor;
 
-    // JWT de prueba con payload: {"sub":"user@test.cl","role":"ADMIN","userId":1,"exp":9999999999}
+    // JWT de prueba con payload: {"sub":"user@test.cl","role":"ADMIN","userId":1}
     private String validJwtHeader;
 
     @BeforeEach
-    void setUp() throws Exception {
-        jwtExtractor = new JwtExtractor(new ObjectMapper());
+    void setUp() {
+        jwtExtractor = new JwtExtractor();
+        ReflectionTestUtils.setField(jwtExtractor, "jwtSecret", TEST_SECRET);
 
-        // Construir JWT falso (sin firma real, solo para testear el parsing del payload)
-        String header = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes());
+        SecretKey signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(TEST_SECRET));
 
-        Map<String, Object> payload = Map.of(
-                "sub", "user@test.cl",
-                "role", "ADMIN",
-                "userId", 1,
-                "exp", 9999999999L
-        );
-        String payloadStr = new ObjectMapper().writeValueAsString(payload);
-        String encodedPayload = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(payloadStr.getBytes());
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", "ADMIN");
+        claims.put("userId", 1);
 
-        validJwtHeader = "Bearer " + header + "." + encodedPayload + ".fakesignature";
+        String token = Jwts.builder()
+                .claims(claims)
+                .subject("user@test.cl")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 600_000))
+                .signWith(signingKey)
+                .compact();
+
+        validJwtHeader = "Bearer " + token;
     }
 
     @Nested

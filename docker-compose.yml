@@ -1,5 +1,6 @@
 services:
-  # ── BASE DE DATOS (REQUERIDA POR TODOS LOS MS) ──────────────────────────────
+  # ── Infraestructura ───────────────────────────────────────────────────────
+
   postgres:
     image: postgres:15
     container_name: innovatech-postgres
@@ -10,9 +11,14 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ./scripts/init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # ── KAFKA ──────────────────────────────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: innovatech-zookeeper
@@ -32,12 +38,16 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
-  # ── KONG API GATEWAY ────────────────────────────────────────────────────────
   kong:
     image: kong:3.6-ubuntu
     container_name: innovatech-kong
@@ -53,15 +63,175 @@ services:
     volumes:
       - ./kong-gateway/kong.yml:/kong/declarative/kong.yml
     ports:
-      - "8000:8000"   # ← Proxy: el frontend y Postman apuntan aquí
-      - "8001:8001"   # ← Admin API (solo uso interno)
+      - "8000:8000"
+      - "8001:8001"
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 10s
       timeout: 10s
       retries: 10
 
-# ESTE BLOQUE DEBE IR AL FINAL Y SIN ESPACIOS A LA IZQUIERDA
+  sonarqube-db:
+    image: postgres:15
+    container_name: innovatech-sonarqube-db
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - sonarqube_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  sonarqube:
+    image: sonarqube:10.6-community
+    container_name: innovatech-sonarqube
+    depends_on:
+      - sonarqube-db
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  # ── Microservicios Java ───────────────────────────────────────────────────
+
+  ms-auth:
+    build:
+      context: ./ms-auth
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: auth_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
+    restart: unless-stopped
+
+  ms-proyectos:
+    build:
+      context: ./ms-proyectos
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-proyectos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: proyectos_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_SERVER: kafka:9092
+      JWT_SECRET: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
+    restart: unless-stopped
+
+  ms-recursos:
+    build:
+      context: ./ms-recursos
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-recursos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: recursos_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_SERVER: kafka:9092
+    restart: unless-stopped
+
+  ms-analitica:
+    build:
+      context: ./ms-analitica
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-analitica
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: analitica_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_SERVER: kafka:9092
+    restart: unless-stopped
+
+  ms-notif:
+    build:
+      context: ./ms-notif
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-notif
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: notif_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_SERVER: kafka:9092
+    restart: unless-stopped
+
+  # ── BFF Node.js ───────────────────────────────────────────────────────────
+
+  bff:
+    build:
+      context: ./innovatech-bff-valdes-munoz
+      dockerfile: Dockerfile
+    container_name: innovatech-bff
+    depends_on:
+      - ms-auth
+      - ms-proyectos
+      - ms-recursos
+      - ms-analitica
+      - ms-notif
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      MS_AUTH_URL: http://ms-auth:8081
+      MS_PROYECTOS_URL: http://ms-proyectos:8082
+      MS_RECURSOS_URL: http://ms-recursos:8083
+      MS_ANALITICA_URL: http://ms-analitica:8084
+      MS_NOTIF_URL: http://ms-notif:8085
+    restart: unless-stopped
+
 volumes:
   pg_data:
-    driver: local
+  sonarqube_db_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:

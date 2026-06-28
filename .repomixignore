@@ -1,0 +1,28 @@
+# Dependencias
+node_modules/
+
+# Compilados de Java / Spring Boot
+target/
+.mvn/
+mvnw
+mvnw.cmd
+
+# Compilados de Frontend
+dist/
+build/
+.next/
+
+# Cachés y Logs
+.sonar/
+.git/
+*.log
+
+# Binarios y archivos pesados (que no son código)
+*.jar
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.exec
+*.zip

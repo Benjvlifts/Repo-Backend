@@ -14,7 +14,7 @@ public class ProjectNotificationConsumer {
 
     private final NotificationService notificationService;
 
-    @KafkaListener(topics = "project-events", groupId = "notif-group")
+    @KafkaListener(topics = {"project-events", "innovatech.project.created"}, groupId = "notif-group")
     public void consumeProjectEvent(ProjectEventDto event) {
         log.info("Notificaciones: Generando alerta para proyecto ID: {}", event.getProjectId());
         notificationService.processProjectEvent(event);

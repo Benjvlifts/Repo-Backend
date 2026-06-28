@@ -22,7 +22,7 @@ public class NotificationService {
                 .targetId(targetId)
                 .targetType(targetType)
                 .message(message)
-                .isRead(false)
+                .read(false)
                 .createdAt(LocalDateTime.now())
                 .build();
         return notificationRepository.save(notification);
@@ -30,9 +30,8 @@ public class NotificationService {
 
     @Transactional
     public void processProjectEvent(ProjectEventDto event) {
-        String msg = String.format("El proyecto %d ha registrado un evento: %s. Estado actual: %s", 
+        String msg = String.format("Proyecto %d ha registrado un evento: %s. Estado: %s",
                 event.getProjectId(), event.getEventType(), event.getStatus());
-        
         createNotification(event.getProjectId(), "PROJECT", msg);
     }
 
@@ -40,10 +39,14 @@ public class NotificationService {
         return notificationRepository.findByTargetIdAndTargetTypeOrderByCreatedAtDesc(projectId, "PROJECT");
     }
 
+    public List<Notification> getUnreadForProject(Long projectId) {
+        return notificationRepository.findByTargetIdAndTargetTypeAndIsReadFalse(projectId, "PROJECT");
+    }
+
     @Transactional
     public void markAsRead(Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new IllegalArgumentException("Notificación no encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Notificación no encontrada con id: " + notificationId));
         notification.setRead(true);
         notificationRepository.save(notification);
     }

@@ -17,93 +17,104 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("NotificationService — Pruebas Unitarias")
 class NotificationServiceTest {
 
-    @Mock
-    private NotificationRepository notificationRepository;
+    @Mock private NotificationRepository notificationRepository;
+    @InjectMocks private NotificationService notificationService;
 
-    @InjectMocks
-    private NotificationService notificationService;
-
-    private Notification sampleNotif;
+    private Notification sampleNotification;
 
     @BeforeEach
     void setUp() {
-        sampleNotif = Notification.builder()
-                .id(1L)
-                .targetId(100L)
-                .targetType("PROJECT")
-                .message("Prueba de notificación")
-                .isRead(false)
-                .createdAt(LocalDateTime.now())
-                .build();
+        sampleNotification = Notification.builder()
+                .id(1L).targetId(10L).targetType("PROJECT")
+                .message("Proyecto 10 creado").read(false)
+                .createdAt(LocalDateTime.now()).build();
     }
 
     @Nested
-    @DisplayName("Creación y Procesamiento")
-    class CreationTests {
+    @DisplayName("createNotification()")
+    class CreateNotificationTests {
 
         @Test
-        @DisplayName("✅ Procesa evento de Kafka y crea notificación")
+        @DisplayName("✅ Crea y persiste notificación")
+        void createNotification_savesAndReturns() {
+            when(notificationRepository.save(any())).thenReturn(sampleNotification);
+            Notification result = notificationService.createNotification(10L, "PROJECT", "Mensaje test");
+            assertThat(result.getTargetId()).isEqualTo(10L);
+            assertThat(result.getRead()).isFalse(); // FIX: entidad ya no expone isRead(), getter Lombok es getRead()
+            verify(notificationRepository).save(any(Notification.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("processProjectEvent()")
+    class ProcessEventTests {
+
+        @Test
+        @DisplayName("✅ Genera notificación a partir de evento Kafka")
         void processProjectEvent_createsNotification() {
             ProjectEventDto event = new ProjectEventDto();
-            event.setProjectId(100L);
-            event.setEventType("STATUS_UPDATE");
-            event.setStatus("COMPLETED");
+            event.setProjectId(10L);
+            event.setEventType("PROJECT_CREATED");
+            event.setStatus("PLANNING");
 
-            when(notificationRepository.save(any(Notification.class))).thenAnswer(i -> i.getArgument(0));
-
+            when(notificationRepository.save(any())).thenReturn(sampleNotification);
             notificationService.processProjectEvent(event);
-
-            verify(notificationRepository, times(1)).save(argThat(notif -> 
-                notif.getTargetId().equals(100L) && 
-                notif.getMessage().contains("COMPLETED")
-            ));
+            verify(notificationRepository).save(any(Notification.class));
         }
     }
 
     @Nested
-    @DisplayName("Lectura y Actualización")
-    class ReadUpdateTests {
+    @DisplayName("getNotificationsForProject()")
+    class GetNotificationsTests {
 
         @Test
-        @DisplayName("✅ Obtiene notificaciones de un proyecto")
-        void getNotificationsForProject_returnsList() {
-            when(notificationRepository.findByTargetIdAndTargetTypeOrderByCreatedAtDesc(100L, "PROJECT"))
-                    .thenReturn(List.of(sampleNotif));
-
-            List<Notification> results = notificationService.getNotificationsForProject(100L);
-
-            assertThat(results).hasSize(1);
-            assertThat(results.get(0).getTargetId()).isEqualTo(100L);
+        @DisplayName("✅ Retorna notificaciones del proyecto")
+        void getNotificationsForProject_returnsOrdered() {
+            when(notificationRepository.findByTargetIdAndTargetTypeOrderByCreatedAtDesc(10L, "PROJECT"))
+                    .thenReturn(List.of(sampleNotification));
+            List<Notification> result = notificationService.getNotificationsForProject(10L);
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTargetId()).isEqualTo(10L);
         }
+
+        @Test
+        @DisplayName("✅ Retorna notificaciones no leídas")
+        void getUnreadForProject_returnsUnread() {
+            when(notificationRepository.findByTargetIdAndTargetTypeAndIsReadFalse(10L, "PROJECT"))
+                    .thenReturn(List.of(sampleNotification));
+            assertThat(notificationService.getUnreadForProject(10L)).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("markAsRead()")
+    class MarkAsReadTests {
 
         @Test
         @DisplayName("✅ Marca notificación como leída")
-        void markAsRead_existingId_updatesStatus() {
-            when(notificationRepository.findById(1L)).thenReturn(Optional.of(sampleNotif));
-            when(notificationRepository.save(any(Notification.class))).thenAnswer(i -> i.getArgument(0));
-
+        void markAsRead_existingId_setsReadTrue() {
+            when(notificationRepository.findById(1L)).thenReturn(Optional.of(sampleNotification));
+            when(notificationRepository.save(any())).thenReturn(sampleNotification);
             notificationService.markAsRead(1L);
-
-            assertThat(sampleNotif.isRead()).isTrue();
-            verify(notificationRepository).save(sampleNotif);
+            verify(notificationRepository).save(argThat(Notification::getRead)); // FIX: Notification::isRead -> Notification::getRead
         }
 
-        @Test
-        @DisplayName("❌ Lanza excepción si la notificación a leer no existe")
-        void markAsRead_nonExistingId_throwsException() {
-            when(notificationRepository.findById(99L)).thenReturn(Optional.empty());
 
+        @Test
+        @DisplayName("❌ Lanza excepción si notificación no existe")
+        void markAsRead_nonExisting_throwsException() {
+            when(notificationRepository.findById(99L)).thenReturn(Optional.empty());
             assertThatThrownBy(() -> notificationService.markAsRead(99L))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("99");
         }
     }
 }

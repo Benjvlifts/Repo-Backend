@@ -3,6 +3,7 @@ package com.innovatech.recursos.dto;
 import com.innovatech.recursos.model.Resource;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,15 @@ public class ResourceDtos {
 
         private Resource.ResourceRole role;
         private String skills;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class AssignToProjectRequest {
+        @NotNull(message = "El ID del proyecto es obligatorio")
+        private Long projectId;
+
+        @NotBlank(message = "El nombre del proyecto es obligatorio")
+        private String projectName;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
