@@ -17,25 +17,18 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
 
-/**
- * Pruebas unitarias para JwtExtractor.
- * Valida: extracción de claims, roles, userId, subject desde header Authorization.
- *
- * @author Benjamin Valdes, Ignacio Munoz
- */
 @DisplayName("JwtExtractor — Pruebas Unitarias")
 class JwtExtractorTest {
 
-    // Mismo secreto Base64 que application-test.properties (app.jwt.secret)
+    // Mismo secreto Base64 que application.properties (app.jwt.secret)
     private static final String TEST_SECRET = "5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437";
 
     private JwtExtractor jwtExtractor;
-
-    // JWT de prueba con payload: {"sub":"user@test.cl","role":"ADMIN","userId":1}
     private String validJwtHeader;
 
     @BeforeEach
     void setUp() {
+        // FIX: constructor sin parámetros; el secreto se inyecta vía @Value -> ReflectionTestUtils
         jwtExtractor = new JwtExtractor();
         ReflectionTestUtils.setField(jwtExtractor, "jwtSecret", TEST_SECRET);
 
@@ -64,7 +57,6 @@ class JwtExtractorTest {
         @DisplayName("✅ Extrae claims correctamente desde JWT válido")
         void extractClaims_validJwt_returnsClaims() {
             Map<String, Object> claims = jwtExtractor.extractClaims(validJwtHeader);
-
             assertThat(claims).isNotEmpty();
             assertThat(claims.get("sub")).isEqualTo("user@test.cl");
             assertThat(claims.get("role")).isEqualTo("ADMIN");
@@ -73,22 +65,19 @@ class JwtExtractorTest {
         @Test
         @DisplayName("✅ Retorna mapa vacío si header es null")
         void extractClaims_nullHeader_returnsEmptyMap() {
-            Map<String, Object> claims = jwtExtractor.extractClaims(null);
-            assertThat(claims).isEmpty();
+            assertThat(jwtExtractor.extractClaims(null)).isEmpty();
         }
 
         @Test
         @DisplayName("✅ Retorna mapa vacío si header no empieza con 'Bearer '")
         void extractClaims_noBearer_returnsEmptyMap() {
-            Map<String, Object> claims = jwtExtractor.extractClaims("Basic token123");
-            assertThat(claims).isEmpty();
+            assertThat(jwtExtractor.extractClaims("Basic token123")).isEmpty();
         }
 
         @Test
         @DisplayName("✅ Retorna mapa vacío si JWT tiene formato incorrecto")
         void extractClaims_malformedJwt_returnsEmptyMap() {
-            Map<String, Object> claims = jwtExtractor.extractClaims("Bearer notajwt");
-            assertThat(claims).isEmpty();
+            assertThat(jwtExtractor.extractClaims("Bearer notajwt")).isEmpty();
         }
     }
 
@@ -116,8 +105,7 @@ class JwtExtractorTest {
         @Test
         @DisplayName("✅ Extrae userId como Long desde JWT")
         void extractUserId_validJwt_returnsUserId() {
-            Long userId = jwtExtractor.extractUserId(validJwtHeader);
-            assertThat(userId).isEqualTo(1L);
+            assertThat(jwtExtractor.extractUserId(validJwtHeader)).isEqualTo(1L);
         }
 
         @Test

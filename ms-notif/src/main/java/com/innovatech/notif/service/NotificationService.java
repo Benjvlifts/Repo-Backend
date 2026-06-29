@@ -30,8 +30,8 @@ public class NotificationService {
 
     @Transactional
     public void processProjectEvent(ProjectEventDto event) {
-        String msg = String.format("Proyecto %d ha registrado un evento: %s. Estado: %s",
-                event.getProjectId(), event.getEventType(), event.getStatus());
+        String msg = String.format("Proyecto '%s' (ID %d) ha registrado un evento: %s. Estado: %s",
+                event.getProjectName(), event.getProjectId(), event.getType(), event.getStatus());
         createNotification(event.getProjectId(), "PROJECT", msg);
     }
 

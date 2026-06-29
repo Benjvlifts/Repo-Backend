@@ -31,12 +31,6 @@ public class AnaliticaService {
         if (event.getStatus() != null) {
             metric.setProjectStatus(event.getStatus());
         }
-        if (event.getCompletionPercentage() != null) {
-            metric.setCompletionPercentage(event.getCompletionPercentage());
-        }
-        if (event.getActiveTasks() != null) {
-            metric.setActiveTasks(event.getActiveTasks());
-        }
         metric.setLastUpdated(LocalDateTime.now());
 
         metricRepository.save(metric);

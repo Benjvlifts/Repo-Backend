@@ -2,11 +2,14 @@ package com.innovatech.analitica.dto;
 
 import lombok.Data;
 
+// FIX Mismatch Kafka: campos alineados exactamente con ProjectEventMessage (ms-proyectos)
 @Data
 public class ProjectEventDto {
+    private String eventId;
+    private String timestamp;
     private Long projectId;
-    private String eventType; // ej. "PROJECT_CREATED", "STATUS_UPDATED", "TASK_COMPLETED"
+    private String projectName;
+    private String type;
     private String status;
-    private Double completionPercentage;
-    private Integer activeTasks;
+    private Long managerId;
 }

@@ -16,7 +16,7 @@ public class ProjectEventConsumer {
 
     @KafkaListener(topics = {"project-events", "innovatech.project.created"}, groupId = "analitica-group")
     public void consumeProjectEvent(ProjectEventDto event) {
-        log.info("Analítica: Recibido evento proyecto ID: {} - Tipo: {}", event.getProjectId(), event.getEventType());
+        log.info("Analítica: Recibido evento proyecto ID: {} - Tipo: {}", event.getProjectId(), event.getType());
         analiticaService.processProjectEvent(event);
     }
 }

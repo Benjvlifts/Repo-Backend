@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,8 +51,8 @@ class AnaliticaServiceTest {
             ProjectEventDto event = new ProjectEventDto();
             event.setProjectId(99L);
             event.setStatus("PLANNING");
-            event.setCompletionPercentage(0.0);
-            event.setActiveTasks(3);
+            // FIX: setCompletionPercentage y setActiveTasks eliminados —
+            //      estos campos ya no existen en ProjectEventDto (alineado con Kafka)
 
             when(metricRepository.findByProjectId(99L)).thenReturn(Optional.empty());
             when(metricRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -66,8 +67,7 @@ class AnaliticaServiceTest {
             ProjectEventDto event = new ProjectEventDto();
             event.setProjectId(10L);
             event.setStatus("COMPLETED");
-            event.setCompletionPercentage(100.0);
-            event.setActiveTasks(0);
+            // FIX: setCompletionPercentage(100.0) y setActiveTasks(0) eliminados
 
             when(metricRepository.findByProjectId(10L)).thenReturn(Optional.of(sampleMetric));
             when(metricRepository.save(any())).thenReturn(sampleMetric);
@@ -149,7 +149,8 @@ class AnaliticaServiceTest {
             when(metricRepository.findAll()).thenReturn(List.of(sampleMetric, m2));
             KpiSummaryResponse summary = analiticaService.getSummary();
 
-            assertThat(summary.getTotalProjects()).isEqualTo(2L);
+            // FIX: KpiSummaryResponse.totalProjects es int, no long -> literal sin sufijo L
+            assertThat(summary.getTotalProjects()).isEqualTo(2);
             assertThat(summary.getAverageCompletion()).isEqualTo(87.5);
             assertThat(summary.getActiveProjects()).isEqualTo(1L);
             assertThat(summary.getCompletedProjects()).isEqualTo(1L);
@@ -160,7 +161,9 @@ class AnaliticaServiceTest {
         void getSummary_noMetrics_returnsZeros() {
             when(metricRepository.findAll()).thenReturn(List.of());
             KpiSummaryResponse summary = analiticaService.getSummary();
-            assertThat(summary.getTotalProjects()).isEqualTo(0L);
+
+            // FIX: KpiSummaryResponse.totalProjects es int, no long -> literal sin sufijo L
+            assertThat(summary.getTotalProjects()).isEqualTo(0);
             assertThat(summary.getAverageCompletion()).isEqualTo(0.0);
         }
     }

@@ -5,11 +5,13 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 
-const authRoutes     = require('./routes/authRoutes');
-const projectRoutes  = require('./routes/projectRoutes');
-const resourceRoutes = require('./routes/resourceRoutes');
-const errorHandler   = require('./middleware/errorHandler');
-const { httpClient } = require('./services/httpClient');
+const authRoutes      = require('./routes/authRoutes');
+const projectRoutes   = require('./routes/projectRoutes');
+const resourceRoutes  = require('./routes/resourceRoutes');
+const analiticaRoutes = require('./routes/analiticaRoutes');
+const notifRoutes     = require('./routes/notifRoutes');
+const errorHandler    = require('./middleware/errorHandler');
+const { httpClient }  = require('./services/httpClient');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -24,9 +26,11 @@ app.use(rateLimit({
   message: { error: 'Demasiadas solicitudes. Intente más tarde.' },
 }));
 
-app.use('/api/auth',      authRoutes);
-app.use('/api/projects',  projectRoutes);
-app.use('/api/resources', resourceRoutes);
+app.use('/api/auth',              authRoutes);
+app.use('/api/projects',          projectRoutes);
+app.use('/api/resources',         resourceRoutes);
+app.use('/api/v1/analitica',      analiticaRoutes);
+app.use('/api/v1/notificaciones', notifRoutes);
 
 app.get('/health', (req, res) => {
   res.json({

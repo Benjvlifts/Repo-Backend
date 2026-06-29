@@ -63,7 +63,7 @@ class NotificationServiceTest {
         void processProjectEvent_createsNotification() {
             ProjectEventDto event = new ProjectEventDto();
             event.setProjectId(10L);
-            event.setEventType("PROJECT_CREATED");
+            event.setType("PROJECT_CREATED"); // FIX: setEventType → setType (campo en DTO es 'type')
             event.setStatus("PLANNING");
 
             when(notificationRepository.save(any())).thenReturn(sampleNotification);

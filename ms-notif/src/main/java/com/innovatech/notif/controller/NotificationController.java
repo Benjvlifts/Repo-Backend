@@ -25,11 +25,7 @@ public class NotificationController {
     @GetMapping("/proyecto/{projectId}")
     @Operation(summary = "Listar notificaciones de un proyecto",
                description = "Retorna todas las notificaciones asociadas a un proyecto.")
-    // FIX: se agrega 404 faltante
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lista de notificaciones"),
-            @ApiResponse(responseCode = "404", description = "No existen notificaciones para el proyecto indicado")
-    })
+    @ApiResponse(responseCode = "200", description = "Lista de notificaciones (puede ser vacía)")
     public ResponseEntity<List<Notification>> getNotifications(@PathVariable Long projectId) {
         return ResponseEntity.ok(notificationService.getNotificationsForProject(projectId));
     }
@@ -37,11 +33,7 @@ public class NotificationController {
     @GetMapping("/proyecto/{projectId}/no-leidas")
     @Operation(summary = "Listar notificaciones no leídas",
                description = "Retorna solo las notificaciones no leídas de un proyecto.")
-    // FIX: se agrega 404 faltante
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lista de notificaciones no leídas"),
-            @ApiResponse(responseCode = "404", description = "No existen notificaciones para el proyecto indicado")
-    })
+    @ApiResponse(responseCode = "200", description = "Lista de notificaciones no leídas (puede ser vacía)")
     public ResponseEntity<List<Notification>> getUnread(@PathVariable Long projectId) {
         return ResponseEntity.ok(notificationService.getUnreadForProject(projectId));
     }

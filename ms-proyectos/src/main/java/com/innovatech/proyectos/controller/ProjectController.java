@@ -96,21 +96,47 @@ public class ProjectController {
      * GET /api/projects/{id}
      */
     @GetMapping("/{id}")
-    @Operation(summary = "Obtener proyecto por ID", description = "Retorna el detalle de un proyecto específico.")
+    @Operation(summary = "Obtener proyecto por ID", description = "Retorna el detalle de un proyecto específico. Solo ADMIN o el manager asignado.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Proyecto encontrado"),
+            @ApiResponse(responseCode = "403", description = "El usuario no es ADMIN ni el manager asignado"),
             @ApiResponse(responseCode = "404", description = "Proyecto no encontrado")
     })
-    public ResponseEntity<ProjectResponse> getProjectById(@PathVariable Long id) {
-        return ResponseEntity.ok(projectService.getProjectById(id));
+    public ResponseEntity<?> getProjectById(
+            @PathVariable Long id,
+            @RequestHeader("Authorization") String authHeader) {
+
+        ProjectResponse project = projectService.getProjectById(id);
+
+        Long requesterId = jwtExtractor.extractUserId(authHeader);
+        boolean isAssignedManager = project.getManagerId() != null
+                && project.getManagerId().equals(requesterId);
+
+        if (!jwtExtractor.isAdmin(authHeader) && !isAssignedManager) {
+            return forbidden("Solo ADMIN o el manager asignado pueden ver este proyecto");
+        }
+        return ResponseEntity.ok(project);
     }
 
     /**
      * GET /api/projects/manager/{managerId}
      */
     @GetMapping("/manager/{managerId}")
-    @Operation(summary = "Listar proyectos por manager", description = "Retorna los proyectos asociados a un manager específico.")
-    public ResponseEntity<List<ProjectResponse>> getByManager(@PathVariable Long managerId) {
+    @Operation(summary = "Listar proyectos por manager", description = "Retorna los proyectos asociados a un manager específico. Solo ADMIN o el propio manager.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Proyectos del manager"),
+            @ApiResponse(responseCode = "403", description = "El usuario no es ADMIN ni el manager consultado")
+    })
+    public ResponseEntity<?> getByManager(
+            @PathVariable Long managerId,
+            @RequestHeader("Authorization") String authHeader) {
+
+        Long requesterId = jwtExtractor.extractUserId(authHeader);
+        boolean isOwnManagerId = managerId.equals(requesterId);
+
+        if (!jwtExtractor.isAdmin(authHeader) && !isOwnManagerId) {
+            return forbidden("Solo ADMIN o el propio manager pueden ver estos proyectos");
+        }
         return ResponseEntity.ok(projectService.getProjectsByManager(managerId));
     }
 

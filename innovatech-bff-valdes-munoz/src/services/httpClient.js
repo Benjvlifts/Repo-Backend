@@ -4,16 +4,23 @@ const { CircuitBreaker } = require('./CircuitBreaker');
 const MS_AUTH_URL      = process.env.MS_AUTH_URL      || 'http://localhost:8081/api/auth';
 const MS_PROYECTOS_URL = process.env.MS_PROYECTOS_URL || 'http://localhost:8082/api/projects';
 const MS_RECURSOS_URL  = process.env.MS_RECURSOS_URL  || 'http://localhost:8083/api/resources';
+const MS_ANALITICA_URL = process.env.MS_ANALITICA_URL || 'http://localhost:8084/api/v1/analitica';
+const MS_NOTIF_URL     = process.env.MS_NOTIF_URL     || 'http://localhost:8085/api/v1/notificaciones';
 const CB_THRESHOLD = parseInt(process.env.CIRCUIT_BREAKER_THRESHOLD || '5', 10);
 const CB_TIMEOUT   = parseInt(process.env.CIRCUIT_BREAKER_TIMEOUT   || '30000', 10);
 
 const authBreaker      = new CircuitBreaker({ name: 'ms-auth',      failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
 const proyectosBreaker = new CircuitBreaker({ name: 'ms-proyectos', failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
 const recursosBreaker  = new CircuitBreaker({ name: 'ms-recursos',  failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
+const analiticaBreaker = new CircuitBreaker({ name: 'ms-analitica', failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
+const notifBreaker     = new CircuitBreaker({ name: 'ms-notif',     failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
 
 const authClient      = axios.create({ baseURL: MS_AUTH_URL,      timeout: 5000 });
 const proyectosClient = axios.create({ baseURL: MS_PROYECTOS_URL, timeout: 5000 });
 const recursosClient  = axios.create({ baseURL: MS_RECURSOS_URL,  timeout: 5000 });
+const analiticaClient = axios.create({ baseURL: MS_ANALITICA_URL, timeout: 5000 });
+const notifClient     = axios.create({ baseURL: MS_NOTIF_URL,     timeout: 5000 });
+
 
 const httpClient = {
   auth: {
@@ -69,6 +76,25 @@ const httpClient = {
     proyectos: proyectosBreaker.getStatus(),
     recursos:  recursosBreaker.getStatus(),
   }),
+ analitica: {
+    getAllMetrics:     (headers)            => analiticaBreaker.execute(() => analiticaClient.get('/metricas', { headers }).then(r => r.data), () => []),
+    getProjectMetrics: (projectId, headers) => analiticaBreaker.execute(() => analiticaClient.get(`/metricas/proyecto/${projectId}`, { headers }).then(r => r.data)),
+    getSummary:        (headers)            => analiticaBreaker.execute(() => analiticaClient.get('/resumen', { headers }).then(r => r.data)),
+  },
+
+  notificaciones: {
+    getByProject: (projectId, headers) => notifBreaker.execute(() => notifClient.get(`/proyecto/${projectId}`, { headers }).then(r => r.data), () => []),
+    getUnread:    (projectId, headers) => notifBreaker.execute(() => notifClient.get(`/proyecto/${projectId}/no-leidas`, { headers }).then(r => r.data), () => []),
+    markAsRead:   (id, headers)        => notifBreaker.execute(() => notifClient.patch(`/${id}/read`, {}, { headers }).then(r => r.data)),
+  },
+
+  getBreakersStatus: () => ({
+    auth:      authBreaker.getStatus(),
+    proyectos: proyectosBreaker.getStatus(),
+    recursos:  recursosBreaker.getStatus(),
+    analitica: analiticaBreaker.getStatus(),
+    notif:     notifBreaker.getStatus(),
+  }),
 };
 
-module.exports = { httpClient, authBreaker, proyectosBreaker, recursosBreaker };
+module.exports = { httpClient, authBreaker, proyectosBreaker, recursosBreaker, analiticaBreaker, notifBreaker };

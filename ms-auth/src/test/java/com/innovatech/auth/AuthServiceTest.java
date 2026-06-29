@@ -2,7 +2,7 @@ package com.innovatech.auth;
 
 import com.innovatech.auth.dto.AuthDtos.*;
 import com.innovatech.auth.model.User;
-import com.innovatech.auth.repository.JpaUserRepository;
+import com.innovatech.auth.repository.IUserRepository;   // FIX: era JpaUserRepository
 import com.innovatech.auth.security.JwtService;
 import com.innovatech.auth.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,23 +22,14 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/**
- * Pruebas unitarias para AuthService.
- * Cobertura: registro, login, validación de token, consulta de usuarios.
- *
- * @author Benjamin Valdes, Ignacio Munoz
- */
 @ExtendWith(MockitoExtension.class)
+@DisplayName("AuthService — Pruebas Unitarias")
 class AuthServiceTest {
 
-    @Mock
-    private JpaUserRepository userRepository;
-
-    @Mock
-    private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private JwtService jwtService;
+    // FIX: mock de la interfaz de dominio, no de la implementación JPA
+    @Mock private IUserRepository userRepository;
+    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private JwtService jwtService;
 
     @InjectMocks
     private AuthService authService;
@@ -111,10 +102,7 @@ class AuthServiceTest {
         when(jwtService.generateToken(anyString(), anyString(), anyLong())).thenReturn("token");
 
         RegisterRequest noRoleRequest = RegisterRequest.builder()
-                .name("Test")
-                .email("test@test.cl")
-                .password("pass123")
-                .build();
+                .name("Test").email("test@test.cl").password("pass123").build();
 
         AuthResponse response = authService.register(noRoleRequest);
         assertThat(response.getRole()).isEqualTo("EMPLOYEE");
