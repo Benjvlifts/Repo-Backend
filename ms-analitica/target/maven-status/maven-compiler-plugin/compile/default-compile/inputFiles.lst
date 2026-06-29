@@ -1,4 +1,8 @@
+C:\Users\Administrator\Desktop\Fullstack\Repo-Backend\ms-analitica\src\main\java\com\innovatech\analitica\config\GlobalExceptionHandler.java
+C:\Users\Administrator\Desktop\Fullstack\Repo-Backend\ms-analitica\src\main\java\com\innovatech\analitica\config\OpenApiConfig.java
 C:\Users\Administrator\Desktop\Fullstack\Repo-Backend\ms-analitica\src\main\java\com\innovatech\analitica\controller\AnaliticaController.java
+C:\Users\Administrator\Desktop\Fullstack\Repo-Backend\ms-analitica\src\main\java\com\innovatech\analitica\dto\KpiResponse.java
+C:\Users\Administrator\Desktop\Fullstack\Repo-Backend\ms-analitica\src\main\java\com\innovatech\analitica\dto\KpiSummaryResponse.java
 C:\Users\Administrator\Desktop\Fullstack\Repo-Backend\ms-analitica\src\main\java\com\innovatech\analitica\dto\ProjectEventDto.java
 C:\Users\Administrator\Desktop\Fullstack\Repo-Backend\ms-analitica\src\main\java\com\innovatech\analitica\kafka\ProjectEventConsumer.java
 C:\Users\Administrator\Desktop\Fullstack\Repo-Backend\ms-analitica\src\main\java\com\innovatech\analitica\model\ProjectMetric.java

@@ -9,5 +9,5 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     List<Notification> findByTargetIdAndTargetTypeOrderByCreatedAtDesc(Long targetId, String targetType);
-    List<Notification> findByTargetIdAndTargetTypeAndIsReadFalse(Long targetId, String targetType);
+    List<Notification> findByTargetIdAndTargetTypeAndReadFalse(Long targetId, String targetType); // FIX: "IsRead" no resuelve, el campo/getter Lombok es "read"
 }

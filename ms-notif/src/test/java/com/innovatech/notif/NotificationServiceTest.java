@@ -89,7 +89,7 @@ class NotificationServiceTest {
         @Test
         @DisplayName("✅ Retorna notificaciones no leídas")
         void getUnreadForProject_returnsUnread() {
-            when(notificationRepository.findByTargetIdAndTargetTypeAndIsReadFalse(10L, "PROJECT"))
+            when(notificationRepository.findByTargetIdAndTargetTypeAndReadFalse(10L, "PROJECT"))
                     .thenReturn(List.of(sampleNotification));
             assertThat(notificationService.getUnreadForProject(10L)).hasSize(1);
         }

@@ -1,0 +1,54 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-MsAnaliticaApplication<ms-analitica>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.innovatech.analitica.MsAnaliticaApplication",
+            "projectName": "ms-analitica",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-MsAuthApplication<ms-auth>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.innovatech.auth.MsAuthApplication",
+            "projectName": "ms-auth",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-MsNotifApplication<ms-notif>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.innovatech.notif.MsNotifApplication",
+            "projectName": "ms-notif",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-MsProyectosApplication<ms-proyectos>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.innovatech.proyectos.MsProyectosApplication",
+            "projectName": "ms-proyectos",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-MsRecursosApplication<ms-recursos>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.innovatech.recursos.MsRecursosApplication",
+            "projectName": "ms-recursos",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

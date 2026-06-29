@@ -1,8 +1,8 @@
 com\innovatech\analitica\controller\AnaliticaController.class
-com\innovatech\analitica\MsAnaliticaApplication.class
-com\innovatech\analitica\dto\ProjectEventDto.class
-com\innovatech\analitica\model\ProjectMetric$ProjectMetricBuilder.class
 com\innovatech\analitica\kafka\ProjectEventConsumer.class
 com\innovatech\analitica\service\AnaliticaService.class
 com\innovatech\analitica\model\ProjectMetric.class
+com\innovatech\analitica\MsAnaliticaApplication.class
+com\innovatech\analitica\dto\ProjectEventDto.class
+com\innovatech\analitica\model\ProjectMetric$ProjectMetricBuilder.class
 com\innovatech\analitica\repository\ProjectMetricRepository.class

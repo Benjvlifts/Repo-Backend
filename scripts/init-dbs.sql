@@ -1,0 +1,5 @@
+CREATE DATABASE auth_db;
+CREATE DATABASE proyectos_db;
+CREATE DATABASE recursos_db;
+CREATE DATABASE analitica_db;
+CREATE DATABASE notif_db;

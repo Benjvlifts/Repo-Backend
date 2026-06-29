@@ -40,7 +40,7 @@ public class NotificationService {
     }
 
     public List<Notification> getUnreadForProject(Long projectId) {
-        return notificationRepository.findByTargetIdAndTargetTypeAndIsReadFalse(projectId, "PROJECT");
+        return notificationRepository.findByTargetIdAndTargetTypeAndReadFalse(projectId, "PROJECT");
     }
 
     @Transactional
