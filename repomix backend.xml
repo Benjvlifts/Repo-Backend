@@ -715,42 +715,6 @@ public class KpiSummaryResponse {
 }
 </file>
 
-<file path="ms-analitica/src/main/java/com/innovatech/analitica/model/ProjectMetric.java">
-package com.innovatech.analitica.model;
-
-import jakarta.persistence.*;
-import lombok.*;
-import java.time.LocalDateTime;
-
-@Entity
-@Table(name = "project_metrics")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class ProjectMetric {
-
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false, unique = true)
-    private Long projectId;
-
-    /** NUEVO: nombre del proyecto para mostrar en el dashboard de KPIs. */
-    @Column
-    private String projectName;
-
-    @Column(nullable = false)
-    private String projectStatus;
-
-    @Column(nullable = false)
-    private Double completionPercentage;
-
-    @Column(nullable = false)
-    private Integer activeTasks;
-
-    @Column(nullable = false)
-    private LocalDateTime lastUpdated;
-}
-</file>
-
 <file path="ms-analitica/src/main/java/com/innovatech/analitica/MsAnaliticaApplication.java">
 package com.innovatech.analitica;
 
@@ -1762,37 +1726,6 @@ public class ProjectDtos {
 }
 </file>
 
-<file path="ms-proyectos/src/main/java/com/innovatech/proyectos/messaging/ProjectEventMessage.java">
-package com.innovatech.proyectos.messaging;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class ProjectEventMessage {
-    private String eventId;
-    private String timestamp;
-    private Long   projectId;
-    private String projectName;
-    private String type;       // Tipo de proyecto: SOFTWARE | CONSULTING | INFRASTRUCTURE
-    private String status;     // Estado: PLANNING | IN_PROGRESS | ON_HOLD | COMPLETED | CANCELLED
-    private Long   managerId;
-
-    // ── Campos nuevos para enrutamiento y recursos ──────────────────────────
-    /** Discriminador del evento: PROJECT_CREATED | STATUS_CHANGED | RESOURCE_ASSIGNED | RESOURCE_UNASSIGNED */
-    private String eventType;
-    /** ID del empleado en ms-auth; solo presente en eventos RESOURCE_* */
-    private Long   assignedEmployeeId;
-    /** Nombre del empleado; solo presente en eventos RESOURCE_* */
-    private String assignedEmployeeName;
-}
-</file>
-
 <file path="ms-proyectos/src/main/java/com/innovatech/proyectos/model/Project.java">
 package com.innovatech.proyectos.model;
 
@@ -2292,114 +2225,6 @@ public class SecurityConfig {
 }
 </file>
 
-<file path="ms-recursos/src/main/java/com/innovatech/recursos/messaging/ProjectEventMessage.java">
-package com.innovatech.recursos.messaging;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-/** Espejo del DTO producido por ms-proyectos. Campos alineados exactamente. */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class ProjectEventMessage {
-    private String eventId;
-    private String timestamp;
-    private Long   projectId;
-    private String projectName;
-    private String type;
-    private String status;
-    private Long   managerId;
-    // Campos nuevos
-    private String eventType;
-    private Long   assignedEmployeeId;
-    private String assignedEmployeeName;
-}
-</file>
-
-<file path="ms-recursos/src/main/java/com/innovatech/recursos/model/Resource.java">
-package com.innovatech.recursos.model;
-
-import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import lombok.*;
-
-import java.time.LocalDateTime;
-
-/**
- * Entidad Recurso — representa un profesional disponible en Innovatech.
- * Patrón Repository: accedida exclusivamente a través de IResourceRepository.
- *
- * @author Benjamin Valdes, Ignacio Munoz
- */
-@Entity
-@Table(name = "resources",
-       uniqueConstraints = @UniqueConstraint(columnNames = "email"))
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class Resource {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @NotBlank
-    @Column(nullable = false)
-    private String name;
-
-    @Email
-    @Column(nullable = false, unique = true)
-    private String email;
-
-    @Column(nullable = false)
-    private String department;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    @Builder.Default
-    private ResourceRole role = ResourceRole.DEVELOPER;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private boolean available = true;
-
-    private String skills;  // CSV: "Java,Spring,React"
-
-    @Column(name = "assigned_project_id")
-    private Long assignedProjectId;
-
-    @Column(name = "assigned_project_name")
-    private String assignedProjectName;
-
-    /**
-     * NUEVO: ID del usuario en ms-auth que corresponde a este recurso.
-     * Permite correlacionar eventos Kafka (employeeId) con registros locales.
-     */
-    @Column(name = "user_id", unique = true)
-    private Long userId;
-
-    @Column(name = "created_at", updatable = false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public enum ResourceRole {
-        DEVELOPER, DESIGNER, QA, DEVOPS, MANAGER, CONSULTANT
-    }
-}
-</file>
-
 <file path="ms-recursos/src/main/java/com/innovatech/recursos/MsRecursosApplication.java">
 package com.innovatech.recursos;
 
@@ -2435,81 +2260,6 @@ class MsRecursosApplicationTests {
     void contextLoads() {
     }
 
-}
-</file>
-
-<file path="ms-recursos/src/test/java/com/innovatech/recursos/ProjectEventConsumerTest.java">
-package com.innovatech.recursos;
-
-import com.innovatech.recursos.messaging.ProjectEventConsumer;
-import com.innovatech.recursos.messaging.ProjectEventMessage;
-import com.innovatech.recursos.service.ResourceService;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.mockito.Mockito.*;
-
-@ExtendWith(MockitoExtension.class)
-@DisplayName("ProjectEventConsumer (ms-recursos) — Pruebas Unitarias")
-class ProjectEventConsumerTest {
-
-    @Mock    private ResourceService resourceService;
-    @InjectMocks private ProjectEventConsumer consumer;
-
-    private ProjectEventMessage buildEvent(Long id, String name, String status) {
-        ProjectEventMessage e = new ProjectEventMessage();
-        e.setProjectId(id);
-        e.setProjectName(name);
-        e.setType("SOFTWARE");
-        e.setStatus(status);
-        return e;
-    }
-
-    @Test
-    @DisplayName("✅ Proyecto COMPLETED → libera recursos automáticamente")
-    void consumeProjectCreated_completedStatus_releasesResources() {
-        ProjectEventMessage event = buildEvent(1L, "Portal Fintech", "COMPLETED");
-        when(resourceService.releaseByProject(1L)).thenReturn(3);
-
-        consumer.consumeProjectCreated(event);
-
-        verify(resourceService, times(1)).releaseByProject(1L);
-    }
-
-    @Test
-    @DisplayName("✅ Proyecto IN_PROGRESS → NO libera recursos")
-    void consumeProjectCreated_inProgressStatus_doesNotRelease() {
-        ProjectEventMessage event = buildEvent(2L, "App Móvil", "IN_PROGRESS");
-
-        consumer.consumeProjectCreated(event);
-
-        verifyNoInteractions(resourceService);
-    }
-
-    @Test
-    @DisplayName("✅ Proyecto PLANNING → NO libera recursos")
-    void consumeProjectCreated_planningStatus_doesNotRelease() {
-        ProjectEventMessage event = buildEvent(3L, "Infraestructura", "PLANNING");
-
-        consumer.consumeProjectCreated(event);
-
-        verifyNoInteractions(resourceService);
-    }
-
-    @Test
-    @DisplayName("✅ Status en minúsculas 'completed' → libera recursos (case-insensitive)")
-    void consumeProjectCreated_completedLowerCase_releasesResources() {
-        ProjectEventMessage event = buildEvent(4L, "ERP System", "completed");
-        when(resourceService.releaseByProject(4L)).thenReturn(1);
-
-        consumer.consumeProjectCreated(event);
-
-        verify(resourceService).releaseByProject(4L);
-    }
 }
 </file>
 
@@ -6028,64 +5778,40 @@ public class AnaliticaController {
 }
 </file>
 
-<file path="ms-analitica/src/main/java/com/innovatech/analitica/dto/ProjectEventDto.java">
-package com.innovatech.analitica.dto;
+<file path="ms-analitica/src/main/java/com/innovatech/analitica/model/ProjectMetric.java">
+package com.innovatech.analitica.model;
 
-import lombok.Data;
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
 
-/** Espejo del ProjectEventMessage de ms-proyectos. Campos alineados exactamente. */
-@Data
-public class ProjectEventDto {
-    private String eventId;
-    private String timestamp;
-    private Long   projectId;
+@Entity
+@Table(name = "project_metrics")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class ProjectMetric {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private Long projectId;
+
+    /** NUEVO: nombre del proyecto para mostrar en el dashboard de KPIs. */
+    @Column
     private String projectName;
-    private String type;        // Tipo de proyecto: SOFTWARE | CONSULTING | INFRASTRUCTURE
-    private String status;      // Estado del proyecto
-    private Long   managerId;
-    /** NUEVO: discriminador del evento para lógica de negocio en consumidores. */
-    private String eventType;   // PROJECT_CREATED | STATUS_CHANGED | RESOURCE_ASSIGNED | RESOURCE_UNASSIGNED
-    private Long   assignedEmployeeId;
-    private String assignedEmployeeName;
+
+    @Column(nullable = false)
+    private String projectStatus;
+
+    @Column(nullable = false)
+    private Double completionPercentage;
+
+    @Column(nullable = false)
+    private Integer activeTasks;
+
+    @Column(nullable = false)
+    private LocalDateTime lastUpdated;
 }
-</file>
-
-<file path="ms-analitica/src/main/resources/application.yml">
-server:
-  port: 8084
-
-spring:
-  application:
-    name: ms-analitica
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:analitica_db}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:1234}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-    properties:
-      hibernate:
-        format_sql: true
-  kafka:
-    bootstrap-servers: ${KAFKA_SERVER:localhost:9092}
-    consumer:
-      group-id: analitica-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "*"
-        spring.json.use.type.headers: false          # FIX: ignora __TypeId__ del productor
-        spring.json.value.default.type: com.innovatech.analitica.dto.ProjectEventDto
-
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html
-  api-docs:
-    path: /v3/api-docs
 </file>
 
 <file path="ms-auth/.gitattributes">
@@ -7557,28 +7283,6 @@ public class GlobalExceptionHandler {
 }
 </file>
 
-<file path="ms-notif/src/main/java/com/innovatech/notif/dto/ProjectEventDto.java">
-package com.innovatech.notif.dto;
-
-import lombok.Data;
-
-/** Espejo del ProjectEventMessage de ms-proyectos. Campos alineados exactamente. */
-@Data
-public class ProjectEventDto {
-    private String eventId;
-    private String timestamp;
-    private Long   projectId;
-    private String projectName;
-    private String type;        // Tipo de proyecto: SOFTWARE | CONSULTING | INFRASTRUCTURE
-    private String status;
-    private Long   managerId;
-    /** NUEVO: discriminador del evento para generar mensajes contextuales. */
-    private String eventType;
-    private Long   assignedEmployeeId;
-    private String assignedEmployeeName;
-}
-</file>
-
 <file path="ms-notif/src/main/java/com/innovatech/notif/kafka/ProjectNotificationConsumer.java">
 package com.innovatech.notif.kafka;
 
@@ -7656,41 +7360,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Notification> findByTargetIdAndTargetTypeOrderByCreatedAtDesc(Long targetId, String targetType);
     List<Notification> findByTargetIdAndTargetTypeAndReadFalse(Long targetId, String targetType); // FIX: "IsRead" no resuelve, el campo/getter Lombok es "read"
 }
-</file>
-
-<file path="ms-notif/src/main/resources/application.yml">
-server:
-  port: 8085
-
-spring:
-  application:
-    name: ms-notif
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:notif_db}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:1234}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-  kafka:
-    bootstrap-servers: ${KAFKA_SERVER:localhost:9092}
-    consumer:
-      group-id: notif-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "*"
-        spring.json.use.type.headers: false          # FIX: ignora __TypeId__ del productor
-        spring.json.value.default.type: com.innovatech.notif.dto.ProjectEventDto
-
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html
-  api-docs:
-    path: /v3/api-docs
 </file>
 
 <file path="ms-proyectos/.gitattributes">
@@ -8049,84 +7718,34 @@ public class SecurityConfig {
 }
 </file>
 
-<file path="ms-proyectos/src/main/java/com/innovatech/proyectos/messaging/ProjectEventProducer.java">
+<file path="ms-proyectos/src/main/java/com/innovatech/proyectos/messaging/ProjectEventMessage.java">
 package com.innovatech.proyectos.messaging;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Component;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.time.Instant;
-import java.util.UUID;
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProjectEventMessage {
+    private String eventId;
+    private String timestamp;
+    private Long   projectId;
+    private String projectName;
+    private String type;       // Tipo de proyecto: SOFTWARE | CONSULTING | INFRASTRUCTURE
+    private String status;     // Estado: PLANNING | IN_PROGRESS | ON_HOLD | COMPLETED | CANCELLED
+    private Long   managerId;
 
-@Component
-@RequiredArgsConstructor
-@Slf4j
-public class ProjectEventProducer {
-
-    private static final String TOPIC = "innovatech.project.created";
-    private final KafkaTemplate<String, ProjectEventMessage> kafkaTemplate;
-
-    // ── API pública ──────────────────────────────────────────────────────────
-
-    /** Emite PROJECT_CREATED al crear un proyecto. */
-    public void publishProjectCreated(Long projectId, String projectName,
-                                      String type, String status, Long managerId) {
-        sendEvent(buildEvent(projectId, projectName, type, status, managerId,
-                  "PROJECT_CREATED", null, null));
-    }
-
-    /** Emite STATUS_CHANGED al actualizar estado de un proyecto. */
-    public void publishProjectEvent(Long projectId, String projectName,
-                                    String type, String status, Long managerId) {
-        sendEvent(buildEvent(projectId, projectName, type, status, managerId,
-                  "STATUS_CHANGED", null, null));
-    }
-
-    /** Emite RESOURCE_ASSIGNED al asignar un empleado a un proyecto. */
-    public void publishResourceAssigned(Long projectId, String projectName,
-                                        Long employeeId, String employeeName) {
-        sendEvent(buildEvent(projectId, projectName, null, null, null,
-                  "RESOURCE_ASSIGNED", employeeId, employeeName));
-    }
-
-    /** Emite RESOURCE_UNASSIGNED al desasignar un empleado de un proyecto. */
-    public void publishResourceUnassigned(Long projectId, String projectName,
-                                          Long employeeId, String employeeName) {
-        sendEvent(buildEvent(projectId, projectName, null, null, null,
-                  "RESOURCE_UNASSIGNED", employeeId, employeeName));
-    }
-
-    // ── Helpers privados ─────────────────────────────────────────────────────
-
-    private ProjectEventMessage buildEvent(Long projectId, String projectName,
-                                           String type, String status, Long managerId,
-                                           String eventType, Long employeeId, String employeeName) {
-        return ProjectEventMessage.builder()
-                .eventId(UUID.randomUUID().toString())
-                .timestamp(Instant.now().toString())
-                .projectId(projectId).projectName(projectName)
-                .type(type).status(status).managerId(managerId)
-                .eventType(eventType)
-                .assignedEmployeeId(employeeId)
-                .assignedEmployeeName(employeeName)
-                .build();
-    }
-
-    private void sendEvent(ProjectEventMessage event) {
-        kafkaTemplate.send(TOPIC, event.getEventId(), event)
-                .whenComplete((result, ex) -> {
-                    if (ex == null) {
-                        log.info("📤 [Kafka] '{}' publicado: proyecto='{}' offset={}",
-                                event.getEventType(), event.getProjectName(),
-                                result.getRecordMetadata().offset());
-                    } else {
-                        log.error("❌ [Kafka] Error publicando '{}': {}",
-                                event.getEventType(), ex.getMessage());
-                    }
-                });
-    }
+    // ── Campos nuevos para enrutamiento y recursos ──────────────────────────
+    /** Discriminador del evento: PROJECT_CREATED | STATUS_CHANGED | RESOURCE_ASSIGNED | RESOURCE_UNASSIGNED */
+    private String eventType;
+    /** ID del empleado en ms-auth; solo presente en eventos RESOURCE_* */
+    private Long   assignedEmployeeId;
+    /** Nombre del empleado; solo presente en eventos RESOURCE_* */
+    private String assignedEmployeeName;
 }
 </file>
 
@@ -8407,219 +8026,6 @@ public interface JpaProjectRepository extends JpaRepository<Project, Long>, IPro
     List<Project> findByManagerId(Long managerId);
     @Override
     List<Project> findByAssignedUserId(Long assignedUserId);
-}
-</file>
-
-<file path="ms-proyectos/src/main/java/com/innovatech/proyectos/service/ProjectService.java">
-package com.innovatech.proyectos.service;
-
-import com.innovatech.proyectos.dto.ProjectDtos.*;
-import com.innovatech.proyectos.messaging.ProjectEventProducer;
-import com.innovatech.proyectos.model.Project;
-import com.innovatech.proyectos.model.ProjectNote;
-import com.innovatech.proyectos.patterns.factory.ProjectFactory;
-import com.innovatech.proyectos.patterns.factory.ProjectFactoryProvider;
-import com.innovatech.proyectos.repository.IProjectNoteRepository;
-import com.innovatech.proyectos.repository.IProjectRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
-
-@Service
-@RequiredArgsConstructor
-public class ProjectService {
-
-    private final IProjectRepository projectRepository;
-    private final IProjectNoteRepository noteRepository;
-    private final ProjectFactoryProvider factoryProvider;
-    private final ProjectEventProducer eventProducer;
-
-    @Transactional
-    public ProjectResponse createProject(CreateProjectRequest request) {
-        ProjectFactory factory = factoryProvider.getFactory(request.getType());
-        Project project = factory.createProject(request);
-        Project saved = projectRepository.save(project);
-        eventProducer.publishProjectCreated(saved.getId(), saved.getName(),
-                saved.getType().name(), saved.getStatus().name(), saved.getManagerId());
-        return toResponse(saved);
-    }
-
-    @Transactional
-    public ProjectResponse updateProject(Long id, UpdateProjectRequest request) {
-        Project project = findOrThrow(id);
-        if (request.getName() != null && !request.getName().isBlank())
-            project.setName(request.getName());
-        if (request.getDescription() != null)
-            project.setDescription(request.getDescription());
-        if (request.getStatus() != null)
-            project.setStatus(request.getStatus());
-        return toResponse(projectRepository.save(project));
-    }
-
-    /**
-     * FIX: publica evento de cambio de estado para que ms-recursos
-     * libere automáticamente los recursos cuando el proyecto finaliza.
-     */
-    @Transactional
-    public ProjectResponse updateStatus(Long id, UpdateStatusRequest request) {
-        Project project = findOrThrow(id);
-        project.setStatus(request.getStatus());
-        Project saved = projectRepository.save(project);
-        // FIX: notifica a consumidores; ms-recursos libera recursos si status=COMPLETED
-        eventProducer.publishProjectEvent(saved.getId(), saved.getName(),
-                saved.getType().name(), saved.getStatus().name(), saved.getManagerId());
-        return toResponse(saved);
-    }
-
-    @Transactional
-    public ProjectResponse assignEmployee(Long projectId, AssignEmployeeRequest request) {
-        Project project = findOrThrow(projectId);
-        project.setAssignedUserId(request.getEmployeeId());
-        project.setAssignedUserName(request.getEmployeeName());
-        Project saved = projectRepository.save(project);
-        // NUEVO: dispara evento para que ms-recursos marque el recurso como no disponible
-        eventProducer.publishResourceAssigned(
-                saved.getId(), saved.getName(),
-                request.getEmployeeId(), request.getEmployeeName());
-        return toResponse(saved);
-    }
-
-    @Transactional
-    public ProjectResponse unassignEmployee(Long projectId) {
-        Project project = findOrThrow(projectId);
-        Long   prevEmployeeId   = project.getAssignedUserId();
-        String prevEmployeeName = project.getAssignedUserName();
-        project.setAssignedUserId(null);
-        project.setAssignedUserName(null);
-        Project saved = projectRepository.save(project);
-        // NUEVO: dispara evento para que ms-recursos libere el recurso
-        if (prevEmployeeId != null) {
-            eventProducer.publishResourceUnassigned(
-                    saved.getId(), saved.getName(),
-                    prevEmployeeId, prevEmployeeName);
-        }
-        return toResponse(saved);
-    }
-
-    @Transactional
-    public void deleteProject(Long id) {
-        if (!projectRepository.existsById(id))
-            throw new IllegalArgumentException("Proyecto no encontrado con id: " + id);
-        projectRepository.deleteById(id);
-    }
-
-    // ── Consultas ─────────────────────────────────────────────────────────────
-
-    public List<ProjectResponse> getAllProjects() {
-        return projectRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    public ProjectResponse getProjectById(Long id) { return toResponse(findOrThrow(id)); }
-
-    public List<ProjectResponse> getProjectsByStatus(Project.ProjectStatus status) {
-        return projectRepository.findByStatus(status).stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    public List<ProjectResponse> getProjectsByType(Project.ProjectType type) {
-        return projectRepository.findByType(type).stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    public List<ProjectResponse> getProjectsByManager(Long managerId) {
-        return projectRepository.findByManagerId(managerId).stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    public List<ProjectResponse> getProjectsByAssignedUser(Long userId) {
-        return projectRepository.findByAssignedUserId(userId).stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    public long getTotalCount() { return projectRepository.count(); }
-
-    // ── Notas ─────────────────────────────────────────────────────────────────
-
-    @Transactional
-    public NoteResponse addNote(Long projectId, CreateNoteRequest request,
-                                Long authorId, String authorName) {
-        findOrThrow(projectId);
-        ProjectNote note = ProjectNote.builder()
-                .projectId(projectId).authorId(authorId).authorName(authorName)
-                .content(request.getContent()).status(ProjectNote.NoteStatus.PENDING).build();
-        return toNoteResponse(noteRepository.save(note));
-    }
-
-    public List<NoteResponse> getNotesByProject(Long projectId) {
-        findOrThrow(projectId);
-        return noteRepository.findByProjectId(projectId).stream()
-                .map(this::toNoteResponse).collect(Collectors.toList());
-    }
-
-    /**
-     * FIX Bug 8: valida que un MANAGER solo revise notas de proyectos que gestiona.
-     * @param reviewerRole rol extraído del JWT ("ADMIN" | "MANAGER")
-     */
-    @Transactional
-    public NoteResponse reviewNote(Long projectId, Long noteId,
-                                   ReviewNoteRequest request,
-                                   Long reviewerId, String reviewerName,
-                                   String reviewerRole) {
-        Project project = findOrThrow(projectId);
-
-        // FIX Bug 8: MANAGER solo puede revisar sus propios proyectos
-        if ("MANAGER".equalsIgnoreCase(reviewerRole)) {
-            if (project.getManagerId() == null || !project.getManagerId().equals(reviewerId)) {
-                throw new IllegalArgumentException(
-                    "El manager (id=" + reviewerId + ") no gestiona el proyecto " + projectId);
-            }
-        }
-
-        ProjectNote note = noteRepository.findById(noteId)
-                .orElseThrow(() -> new IllegalArgumentException("Nota no encontrada con id: " + noteId));
-
-        if (!note.getProjectId().equals(projectId))
-            throw new IllegalArgumentException("La nota no pertenece al proyecto indicado");
-
-        if (note.getStatus() != ProjectNote.NoteStatus.PENDING)
-            throw new IllegalArgumentException("Solo se pueden revisar notas en estado PENDING");
-
-        note.setStatus(request.getStatus());
-        note.setReviewerId(reviewerId);
-        note.setReviewerName(reviewerName);
-        note.setReviewComment(request.getReviewComment());
-        note.setReviewedAt(LocalDateTime.now());
-
-        return toNoteResponse(noteRepository.save(note));
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private Project findOrThrow(Long id) {
-        return projectRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Proyecto no encontrado con id: " + id));
-    }
-
-    private ProjectResponse toResponse(Project p) {
-        return ProjectResponse.builder()
-                .id(p.getId()).name(p.getName()).description(p.getDescription())
-                .type(p.getType().name()).status(p.getStatus().name())
-                .managerId(p.getManagerId()).assignedUserId(p.getAssignedUserId())
-                .assignedUserName(p.getAssignedUserName()).startDate(p.getStartDate())
-                .endDate(p.getEndDate()).techStack(p.getTechStack())
-                .repositoryUrl(p.getRepositoryUrl()).clientName(p.getClientName())
-                .slaDays(p.getSlaDays()).cloudProvider(p.getCloudProvider())
-                .budgetUsd(p.getBudgetUsd()).createdAt(p.getCreatedAt()).build();
-    }
-
-    private NoteResponse toNoteResponse(ProjectNote n) {
-        return NoteResponse.builder()
-                .id(n.getId()).projectId(n.getProjectId()).authorId(n.getAuthorId())
-                .authorName(n.getAuthorName()).content(n.getContent())
-                .status(n.getStatus().name()).reviewerId(n.getReviewerId())
-                .reviewerName(n.getReviewerName()).reviewComment(n.getReviewComment())
-                .createdAt(n.getCreatedAt()).reviewedAt(n.getReviewedAt()).build();
-    }
 }
 </file>
 
@@ -9336,460 +8742,185 @@ public class ResourceController {
 }
 </file>
 
-<file path="ms-recursos/src/main/java/com/innovatech/recursos/dto/ResourceDtos.java">
-package com.innovatech.recursos.dto;
+<file path="ms-recursos/src/main/java/com/innovatech/recursos/messaging/ProjectEventMessage.java">
+package com.innovatech.recursos.messaging;
 
-import com.innovatech.recursos.model.Resource;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/** Espejo del DTO producido por ms-proyectos. Campos alineados exactamente. */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProjectEventMessage {
+    private String eventId;
+    private String timestamp;
+    private Long   projectId;
+    private String projectName;
+    private String type;
+    private String status;
+    private Long   managerId;
+    // Campos nuevos
+    private String eventType;
+    private Long   assignedEmployeeId;
+    private String assignedEmployeeName;
+}
+</file>
+
+<file path="ms-recursos/src/main/java/com/innovatech/recursos/model/Resource.java">
+package com.innovatech.recursos.model;
+
+import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
-public class ResourceDtos {
+/**
+ * Entidad Recurso — representa un profesional disponible en Innovatech.
+ * Patrón Repository: accedida exclusivamente a través de IResourceRepository.
+ *
+ * @author Benjamin Valdes, Ignacio Munoz
+ */
+@Entity
+@Table(name = "resources",
+       uniqueConstraints = @UniqueConstraint(columnNames = "email"))
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Resource {
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
-    public static class CreateResourceRequest {
-        @NotBlank(message = "El nombre es obligatorio")       private String name;
-        @Email @NotBlank(message = "El email es obligatorio") private String email;
-        @NotBlank(message = "El departamento es obligatorio") private String department;
-        private Resource.ResourceRole role;
-        private String skills;
-        /** NUEVO: ID del usuario en ms-auth. Necesario para la correlación Kafka automática. */
-        private Long userId;
-    }
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
-    public static class AssignToProjectRequest {
-        @NotNull(message = "El ID del proyecto es obligatorio")
-        private Long projectId;
+    @NotBlank
+    @Column(nullable = false)
+    private String name;
 
-        @NotBlank(message = "El nombre del proyecto es obligatorio")
-        private String projectName;
-    }
+    @Email
+    @Column(nullable = false, unique = true)
+    private String email;
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
-    public static class ResourceResponse {
-        private Long   id;
-        private String name;
-        private String email;
-        private String department;
-        private String role;
-        private boolean available;
-        private String skills;
-        private Long   assignedProjectId;
-        private String assignedProjectName;
-        /** NUEVO: expuesto para que el frontend pueda vincular con el perfil del usuario. */
-        private Long   userId;
-        private LocalDateTime createdAt;
-    }
+    @Column(nullable = false)
+    private String department;
 
-    @Data @NoArgsConstructor @AllArgsConstructor
-    public static class UpdateAvailabilityRequest {
-        private boolean available;
-    }
-}
-</file>
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private ResourceRole role = ResourceRole.DEVELOPER;
 
-<file path="ms-recursos/src/main/java/com/innovatech/recursos/messaging/ProjectEventConsumer.java">
-package com.innovatech.recursos.messaging;
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean available = true;
 
-import com.innovatech.recursos.service.ResourceService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.stereotype.Component;
+    private String skills;  // CSV: "Java,Spring,React"
 
-@Component
-@RequiredArgsConstructor
-@Slf4j
-public class ProjectEventConsumer {
+    @Column(name = "assigned_project_id")
+    private Long assignedProjectId;
 
-    private final ResourceService resourceService;
-
-    @KafkaListener(
-        topics   = "innovatech.project.created",
-        groupId  = "${spring.kafka.consumer.group-id}"
-    )
-    public void consumeProjectEvent(ProjectEventMessage event) {
-        String eventType = event.getEventType();
-        log.info("📨 [Kafka] Evento '{}' recibido — proyecto='{}' (id={})",
-                eventType, event.getProjectName(), event.getProjectId());
-
-        if (eventType == null) {
-            // Compatibilidad con mensajes sin eventType (legado): revisar solo por status
-            if ("COMPLETED".equalsIgnoreCase(event.getStatus())) {
-                liberarPorProyecto(event.getProjectId());
-            }
-            return;
-        }
-
-        switch (eventType.toUpperCase()) {
-            case "RESOURCE_ASSIGNED" -> {
-                if (event.getAssignedEmployeeId() != null) {
-                    resourceService.assignToProjectByUserId(
-                            event.getAssignedEmployeeId(),
-                            event.getProjectId(),
-                            event.getProjectName());
-                }
-            }
-            case "RESOURCE_UNASSIGNED" -> {
-                if (event.getAssignedEmployeeId() != null) {
-                    resourceService.releaseByUserId(event.getAssignedEmployeeId());
-                }
-            }
-            case "STATUS_CHANGED" -> {
-                if ("COMPLETED".equalsIgnoreCase(event.getStatus()) ||
-                    "CANCELLED".equalsIgnoreCase(event.getStatus())) {
-                    liberarPorProyecto(event.getProjectId());
-                }
-            }
-            default -> log.debug("ℹ️  [Kafka] Evento '{}' ignorado en ms-recursos.", eventType);
-        }
-    }
-
-    private void liberarPorProyecto(Long projectId) {
-        int released = resourceService.releaseByProject(projectId);
-        log.info("✅ [Kafka] {} recurso(s) liberado(s) — proyecto id={}", released, projectId);
-    }
-}
-</file>
-
-<file path="ms-recursos/src/main/java/com/innovatech/recursos/repository/IResourceRepository.java">
-package com.innovatech.recursos.repository;
-
-import com.innovatech.recursos.model.Resource;
-
-import java.util.List;
-import java.util.Optional;
-
-public interface IResourceRepository {
-    Optional<Resource> findById(Long id);
-    List<Resource>     findAll();
-    List<Resource>     findByAvailable(boolean available);
-    List<Resource>     findByDepartment(String department);
-    List<Resource>     findByRole(Resource.ResourceRole role);
-    List<Resource>     findByAssignedProjectId(Long assignedProjectId);
-    boolean            existsByEmail(String email);
-    Resource           save(Resource resource);
-    void               deleteById(Long id);
-    /** NUEVO: busca recurso por el userId de ms-auth para correlación Kafka. */
-    Optional<Resource> findByUserId(Long userId);
-}
-</file>
-
-<file path="ms-recursos/src/main/java/com/innovatech/recursos/repository/JpaResourceRepository.java">
-package com.innovatech.recursos.repository;
-
-import com.innovatech.recursos.model.Resource;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
-import java.util.List;
-import java.util.Optional;
-
-@Repository
-public interface JpaResourceRepository extends JpaRepository<Resource, Long>, IResourceRepository {
-    @Override List<Resource>     findByAvailable(boolean available);
-    @Override List<Resource>     findByDepartment(String department);
-    @Override List<Resource>     findByRole(Resource.ResourceRole role);
-    @Override List<Resource>     findByAssignedProjectId(Long assignedProjectId);
-    @Override boolean            existsByEmail(String email);
-    @Override Optional<Resource> findByUserId(Long userId); // NUEVO
-}
-</file>
-
-<file path="ms-recursos/src/main/java/com/innovatech/recursos/service/ResourceService.java">
-package com.innovatech.recursos.service;
-
-import com.innovatech.recursos.dto.ResourceDtos.*;
-import com.innovatech.recursos.model.Resource;
-import com.innovatech.recursos.repository.IResourceRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
-
-@Service
-@RequiredArgsConstructor
-public class ResourceService {
-
-    private final IResourceRepository resourceRepository;
-
-    // ... métodos existentes sin cambios ...
-
-        @Transactional
-    public ResourceResponse createResource(CreateResourceRequest req) {
-        if (resourceRepository.existsByEmail(req.getEmail()))
-            throw new IllegalArgumentException("Ya existe un recurso con el email: " + req.getEmail());
-        Resource.ResourceRole role = req.getRole() != null ? req.getRole() : Resource.ResourceRole.DEVELOPER;
-        Resource resource = Resource.builder()
-                .name(req.getName()).email(req.getEmail()).department(req.getDepartment())
-                .role(role).skills(req.getSkills()).available(true)
-                .userId(req.getUserId())  // NUEVO: vincula con ms-auth
-                .build();
-        return toResponse(resourceRepository.save(resource));
-    }
-
-    public List<ResourceResponse> getAllResources() {
-        return resourceRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    public List<ResourceResponse> getAvailableResources() {
-        return resourceRepository.findByAvailable(true).stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    public List<ResourceResponse> getByDepartment(String department) {
-        return resourceRepository.findByDepartment(department).stream().map(this::toResponse).collect(Collectors.toList());
-    }
-
-    public ResourceResponse getById(Long id) { return toResponse(findOrThrow(id)); }
-
-
-    @Transactional
-    public void assignToProjectByUserId(Long userId, Long projectId, String projectName) {
-        resourceRepository.findByUserId(userId).ifPresentOrElse(r -> {
-            r.setAvailable(false);
-            r.setAssignedProjectId(projectId);
-            r.setAssignedProjectName(projectName);
-            resourceRepository.save(r);
-            log.info("✅ [Kafka] Recurso id={} (userId={}) → no disponible. Proyecto id={}",
-                    r.getId(), userId, projectId);
-        }, () -> log.warn("⚠️  [Kafka] No se encontró Resource con userId={}. " +
-                "Asegúrate de que el recurso fue creado con userId vinculado.", userId));
-    }
-
-    @Transactional
-    public void releaseByUserId(Long userId) {
-        resourceRepository.findByUserId(userId).ifPresent(r -> {
-            r.setAvailable(true);
-            r.setAssignedProjectId(null);
-            r.setAssignedProjectName(null);
-            resourceRepository.save(r);
-            log.info("✅ [Kafka] Recurso id={} (userId={}) → disponible.", r.getId(), userId);
-        });
-    }
-
-    @Transactional
-    public ResourceResponse updateAvailability(Long id, UpdateAvailabilityRequest req) {
-        Resource r = findOrThrow(id);
-        r.setAvailable(req.isAvailable());
-        return toResponse(resourceRepository.save(r));
-    }
-
-    @Transactional
-    public ResourceResponse assignToProject(Long resourceId, Long projectId, String projectName) {
-        Resource r = findOrThrow(resourceId);
-        r.setAssignedProjectId(projectId);
-        r.setAssignedProjectName(projectName);
-        r.setAvailable(false);
-        return toResponse(resourceRepository.save(r));
-    }
+    @Column(name = "assigned_project_name")
+    private String assignedProjectName;
 
     /**
-     * FIX Bug 3 + assignToProject: libera TODOS los recursos de un proyecto.
-     * Llamado desde el consumidor Kafka cuando status=COMPLETED,
-     * y desde el endpoint PUT /api/resources/capacity para invocación manual.
-     * @return cantidad de recursos liberados
+     * NUEVO: ID del usuario en ms-auth que corresponde a este recurso.
+     * Permite correlacionar eventos Kafka (employeeId) con registros locales.
      */
-    @Transactional
-    public int releaseByProject(Long projectId) {
-        List<Resource> assigned = resourceRepository.findByAssignedProjectId(projectId);
-        assigned.forEach(r -> {
-            r.setAvailable(true);
-            r.setAssignedProjectId(null);
-            r.setAssignedProjectName(null);
-            resourceRepository.save(r);
-        });
-        return assigned.size();
+    @Column(name = "user_id", unique = true)
+    private Long userId;
+
+    @Column(name = "created_at", updatable = false)
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
-    @Transactional
-    public void deleteResource(Long id) {
-        findOrThrow(id);
-        resourceRepository.deleteById(id);
-    }
-
-    private Resource findOrThrow(Long id) {
-        return resourceRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recurso no encontrado con id: " + id));
-    }
-
-    private ResourceResponse toResponse(Resource r) {
-        return ResourceResponse.builder()
-                .id(r.getId()).name(r.getName()).email(r.getEmail())
-                .department(r.getDepartment()).role(r.getRole().name())
-                .available(r.isAvailable()).skills(r.getSkills())
-                .assignedProjectId(r.getAssignedProjectId())
-                .assignedProjectName(r.getAssignedProjectName())
-                .createdAt(r.getCreatedAt()).build();
+    public enum ResourceRole {
+        DEVELOPER, DESIGNER, QA, DEVOPS, MANAGER, CONSULTANT
     }
 }
 </file>
 
-<file path="ms-recursos/src/test/java/com/innovatech/recursos/ResourceServiceTest.java">
+<file path="ms-recursos/src/test/java/com/innovatech/recursos/ProjectEventConsumerTest.java">
 package com.innovatech.recursos;
 
-import com.innovatech.recursos.dto.ResourceDtos.*;
-import com.innovatech.recursos.model.Resource;
-import com.innovatech.recursos.repository.IResourceRepository;
+import com.innovatech.recursos.messaging.ProjectEventConsumer;
+import com.innovatech.recursos.messaging.ProjectEventMessage;
 import com.innovatech.recursos.service.ResourceService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ResourceService — Pruebas Unitarias")
-class ResourceServiceTest {
+@DisplayName("ProjectEventConsumer (ms-recursos) — Pruebas Unitarias")
+class ProjectEventConsumerTest {
 
-    @Mock private IResourceRepository resourceRepository;
-    @InjectMocks private ResourceService resourceService;
+    @Mock    private ResourceService resourceService;
+    @InjectMocks private ProjectEventConsumer consumer;
 
-    private Resource sampleResource;
-
-    @BeforeEach
-    void setUp() {
-        sampleResource = Resource.builder()
-                .id(1L).name("Ana López").email("ana@test.cl").department("IT")
-                .role(Resource.ResourceRole.DEVELOPER).available(true)
-                .skills("Java,Spring").createdAt(LocalDateTime.now())
-                .build();
+    private ProjectEventMessage buildEvent(Long id, String name, String status) {
+        ProjectEventMessage e = new ProjectEventMessage();
+        e.setProjectId(id);
+        e.setProjectName(name);
+        e.setType("SOFTWARE");
+        e.setStatus(status);
+        return e;
     }
 
-    @Nested
-    @DisplayName("createResource()")
-    class CreateResourceTests {
+    @Test
+    @DisplayName("✅ Proyecto COMPLETED → libera recursos automáticamente")
+    void consumeProjectCreated_completedStatus_releasesResources() {
+        ProjectEventMessage event = buildEvent(1L, "Portal Fintech", "COMPLETED");
+        when(resourceService.releaseByProject(1L)).thenReturn(3);
 
-        @Test
-        @DisplayName("✅ Crea recurso y retorna response")
-        void createResource_savesAndReturnsResponse() {
-            CreateResourceRequest req = new CreateResourceRequest("Ana López", "ana@test.cl", "IT", Resource.ResourceRole.DEVELOPER, "Java");
-            when(resourceRepository.existsByEmail("ana@test.cl")).thenReturn(false);
-            when(resourceRepository.save(any(Resource.class))).thenReturn(sampleResource);
+        consumer.consumeProjectEvent(event);  // ← consumeProjectCreated → consumeProjectEvent
 
-            ResourceResponse res = resourceService.createResource(req);
-
-            assertThat(res.getName()).isEqualTo("Ana López");
-            assertThat(res.isAvailable()).isTrue();
-            verify(resourceRepository).save(any(Resource.class));
-        }
-
-        @Test
-        @DisplayName("✅ Asigna rol DEVELOPER si no se especifica")
-        void createResource_noRole_assignsDeveloper() {
-            CreateResourceRequest req = new CreateResourceRequest("Test", "test@test.cl", "IT", null, null);
-            when(resourceRepository.existsByEmail(anyString())).thenReturn(false);
-            when(resourceRepository.save(any())).thenReturn(sampleResource);
-            resourceService.createResource(req);
-            verify(resourceRepository).save(argThat(r -> r.getRole() == Resource.ResourceRole.DEVELOPER));
-        }
-
-        @Test
-        @DisplayName("❌ Lanza excepción si email ya existe")
-        void createResource_duplicateEmail_throwsException() {
-            CreateResourceRequest req = new CreateResourceRequest("Test", "ana@test.cl", "IT", null, null);
-            when(resourceRepository.existsByEmail("ana@test.cl")).thenReturn(true);
-            assertThatThrownBy(() -> resourceService.createResource(req))
-                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("email");
-        }
+        verify(resourceService, times(1)).releaseByProject(1L);
     }
 
-    @Nested
-    @DisplayName("Consultas")
-    class QueryTests {
+    @Test
+    @DisplayName("✅ Proyecto IN_PROGRESS → NO libera recursos")
+    void consumeProjectCreated_inProgressStatus_doesNotRelease() {
+        ProjectEventMessage event = buildEvent(2L, "App Móvil", "IN_PROGRESS");
 
-        @Test
-        @DisplayName("✅ getAllResources retorna lista")
-        void getAllResources_returnsList() {
-            when(resourceRepository.findAll()).thenReturn(List.of(sampleResource));
-            assertThat(resourceService.getAllResources()).hasSize(1);
-        }
+        consumer.consumeProjectEvent(event);  // ← consumeProjectCreated → consumeProjectEvent
 
-        @Test
-        @DisplayName("✅ getAvailableResources retorna solo disponibles")
-        void getAvailableResources_returnsAvailable() {
-            when(resourceRepository.findByAvailable(true)).thenReturn(List.of(sampleResource));
-            assertThat(resourceService.getAvailableResources()).hasSize(1);
-        }
-
-        @Test
-        @DisplayName("✅ getByDepartment filtra correctamente")
-        void getByDepartment_returnsFiltered() {
-            when(resourceRepository.findByDepartment("IT")).thenReturn(List.of(sampleResource));
-            assertThat(resourceService.getByDepartment("IT")).hasSize(1);
-        }
-
-        @Test
-        @DisplayName("✅ getById retorna recurso correcto")
-        void getById_existingId_returnsResource() {
-            when(resourceRepository.findById(1L)).thenReturn(Optional.of(sampleResource));
-            assertThat(resourceService.getById(1L).getId()).isEqualTo(1L);
-        }
-
-        @Test
-        @DisplayName("❌ getById lanza excepción si no existe")
-        void getById_nonExisting_throwsException() {
-            when(resourceRepository.findById(99L)).thenReturn(Optional.empty());
-            assertThatThrownBy(() -> resourceService.getById(99L))
-                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("no encontrado");
-        }
+        verifyNoInteractions(resourceService);
     }
 
-    @Nested
-    @DisplayName("Modificaciones")
-    class MutationTests {
+    @Test
+    @DisplayName("✅ Proyecto PLANNING → NO libera recursos")
+    void consumeProjectCreated_planningStatus_doesNotRelease() {
+        ProjectEventMessage event = buildEvent(3L, "Infraestructura", "PLANNING");
 
-        @Test
-        @DisplayName("✅ updateAvailability cambia disponibilidad")
-        void updateAvailability_changesFlag() {
-            when(resourceRepository.findById(1L)).thenReturn(Optional.of(sampleResource));
-            when(resourceRepository.save(any())).thenReturn(sampleResource);
-            resourceService.updateAvailability(1L, new UpdateAvailabilityRequest(false));
-            verify(resourceRepository).save(argThat(r -> !r.isAvailable()));
-        }
+        consumer.consumeProjectEvent(event);  // ← consumeProjectCreated → consumeProjectEvent
 
-        @Test
-        @DisplayName("✅ assignToProject marca recurso como no disponible")
-        void assignToProject_setsProjectAndUnavailable() {
-            when(resourceRepository.findById(1L)).thenReturn(Optional.of(sampleResource));
-            when(resourceRepository.save(any())).thenReturn(sampleResource);
-            resourceService.assignToProject(1L, 10L, "Proyecto Alpha");
-            verify(resourceRepository).save(argThat(r -> !r.isAvailable() && r.getAssignedProjectId().equals(10L)));
-        }
+        verifyNoInteractions(resourceService);
+    }
 
-        @Test
-        @DisplayName("✅ deleteResource elimina recurso existente")
-        void deleteResource_existingId_deletes() {
-            when(resourceRepository.findById(1L)).thenReturn(Optional.of(sampleResource));
-            doNothing().when(resourceRepository).deleteById(1L);
-            assertThatCode(() -> resourceService.deleteResource(1L)).doesNotThrowAnyException();
-            verify(resourceRepository).deleteById(1L);
-        }
+    @Test
+    @DisplayName("✅ Status en minúsculas 'completed' → libera recursos (case-insensitive)")
+    void consumeProjectCreated_completedLowerCase_releasesResources() {
+        ProjectEventMessage event = buildEvent(4L, "ERP System", "completed");
+        when(resourceService.releaseByProject(4L)).thenReturn(1);
 
-        @Test
-        @DisplayName("❌ deleteResource lanza excepción si no existe")
-        void deleteResource_nonExisting_throwsException() {
-            when(resourceRepository.findById(99L)).thenReturn(Optional.empty());
-            assertThatThrownBy(() -> resourceService.deleteResource(99L))
-                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("no encontrado");
-            verify(resourceRepository, never()).deleteById(any());
-        }
+        consumer.consumeProjectEvent(event);  // ← consumeProjectCreated → consumeProjectEvent
+
+        verify(resourceService).releaseByProject(4L);
     }
 }
 </file>
@@ -10245,6 +9376,28 @@ consumers:
 </project>
 </file>
 
+<file path="ms-analitica/src/main/java/com/innovatech/analitica/dto/ProjectEventDto.java">
+package com.innovatech.analitica.dto;
+
+import lombok.Data;
+
+/** Espejo del ProjectEventMessage de ms-proyectos. Campos alineados exactamente. */
+@Data
+public class ProjectEventDto {
+    private String eventId;
+    private String timestamp;
+    private Long   projectId;
+    private String projectName;
+    private String type;        // Tipo de proyecto: SOFTWARE | CONSULTING | INFRASTRUCTURE
+    private String status;      // Estado del proyecto
+    private Long   managerId;
+    /** NUEVO: discriminador del evento para lógica de negocio en consumidores. */
+    private String eventType;   // PROJECT_CREATED | STATUS_CHANGED | RESOURCE_ASSIGNED | RESOURCE_UNASSIGNED
+    private Long   assignedEmployeeId;
+    private String assignedEmployeeName;
+}
+</file>
+
 <file path="ms-analitica/src/main/java/com/innovatech/analitica/kafka/ProjectEventConsumer.java">
 package com.innovatech.analitica.kafka;
 
@@ -10270,129 +9423,42 @@ public class ProjectEventConsumer {
 }
 </file>
 
-<file path="ms-analitica/src/main/java/com/innovatech/analitica/service/AnaliticaService.java">
-package com.innovatech.analitica.service;
+<file path="ms-analitica/src/main/resources/application.yml">
+server:
+  port: 8084
 
-import com.innovatech.analitica.dto.KpiResponse;
-import com.innovatech.analitica.dto.KpiSummaryResponse;
-import com.innovatech.analitica.dto.ProjectEventDto;
-import com.innovatech.analitica.model.ProjectMetric;
-import com.innovatech.analitica.repository.ProjectMetricRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+spring:
+  application:
+    name: ms-analitica
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:analitica_db}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:1234}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVER:localhost:9092}
+    consumer:
+      group-id: analitica-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false          # FIX: ignora __TypeId__ del productor
+        spring.json.value.default.type: com.innovatech.analitica.dto.ProjectEventDto
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
-
-@Service
-@RequiredArgsConstructor
-public class AnaliticaService {
-
-    private final ProjectMetricRepository metricRepository;
-
-    @Transactional
-    public void processProjectEvent(ProjectEventDto event) {
-        // Ignorar eventos de recursos: no afectan métricas de proyecto
-        if (event.getEventType() != null &&
-            (event.getEventType().startsWith("RESOURCE_"))) {
-            return;
-        }
-
-        ProjectMetric metric = metricRepository.findByProjectId(event.getProjectId())
-                .orElse(ProjectMetric.builder()
-                        .projectId(event.getProjectId())
-                        .completionPercentage(0.0)
-                        .activeTasks(0)
-                        .build());
-
-        if (event.getProjectName() != null) {
-            metric.setProjectName(event.getProjectName());
-        }
-
-        if (event.getStatus() != null) {
-            metric.setProjectStatus(event.getStatus());
-            metric.setCompletionPercentage(computeCompletionPercentage(event.getStatus()));
-            // Ajusta tareas activas según el ciclo de vida
-            switch (event.getStatus().toUpperCase()) {
-                case "IN_PROGRESS" -> metric.setActiveTasks(
-                        Math.max(1, metric.getActiveTasks() + 1));
-                case "ON_HOLD"     -> { /* mantiene activeTasks actuales */ }
-                case "COMPLETED", "CANCELLED" -> metric.setActiveTasks(0);
-                case "PLANNING"    -> metric.setActiveTasks(
-                        metric.getActiveTasks() == 0 ? 0 : metric.getActiveTasks());
-                default -> {}
-            }
-        }
-
-        metric.setLastUpdated(LocalDateTime.now());
-        metricRepository.save(metric);
-
-        log.info("📊 [Kafka] Métrica actualizada — proyecto='{}' status='{}' completion={}%",
-                metric.getProjectName(), metric.getProjectStatus(),
-                metric.getCompletionPercentage());
-    }
-
-    public List<KpiResponse> getGeneralMetrics() {
-        return metricRepository.findAll().stream()
-                .map(this::toKpiResponse)
-                .collect(Collectors.toList());
-    }
-
-    public KpiResponse getProjectMetrics(Long projectId) {
-        return metricRepository.findByProjectId(projectId)
-                .map(this::toKpiResponse)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Métricas no encontradas para el proyecto ID: " + projectId));
-    }
-
-    public KpiSummaryResponse getSummary() {
-        List<ProjectMetric> all = metricRepository.findAll();
-
-        double avgCompletion = all.stream()
-                .mapToDouble(ProjectMetric::getCompletionPercentage)
-                .average()
-                .orElse(0.0);
-
-        long active = all.stream()
-                .filter(m -> "IN_PROGRESS".equals(m.getProjectStatus()))
-                .count();
-
-        long completed = all.stream()
-                .filter(m -> "COMPLETED".equals(m.getProjectStatus()))
-                .count();
-
-        return KpiSummaryResponse.builder()
-                .totalProjects(all.size())
-                .averageCompletion(Math.round(avgCompletion * 100.0) / 100.0)
-                .activeProjects(active)
-                .completedProjects(completed)
-                .metrics(all.stream().map(this::toKpiResponse).collect(Collectors.toList()))
-                .build();
-    }
-
-    private KpiResponse toKpiResponse(ProjectMetric m) {
-        return KpiResponse.builder()
-                .projectId(m.getProjectId())
-                .projectStatus(m.getProjectStatus())
-                .completionPercentage(m.getCompletionPercentage())
-                .activeTasks(m.getActiveTasks())
-                .lastUpdated(m.getLastUpdated())
-                .build();
-    }
-
-    private double computeCompletionPercentage(String status) {
-        return switch (status.toUpperCase()) {
-            case "PLANNING"    -> 10.0;
-            case "IN_PROGRESS" -> 50.0;
-            case "ON_HOLD"     -> 35.0;
-            case "COMPLETED"   -> 100.0;
-            case "CANCELLED"   -> 0.0;
-            default            -> 0.0;
-        };
-    }
-}
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
 </file>
 
 <file path="ms-analitica/src/test/java/com/innovatech/analitica/AnaliticaServiceTest.java">
@@ -11216,6 +10282,63 @@ public class NotificationController {
 }
 </file>
 
+<file path="ms-notif/src/main/java/com/innovatech/notif/dto/ProjectEventDto.java">
+package com.innovatech.notif.dto;
+
+import lombok.Data;
+
+/** Espejo del ProjectEventMessage de ms-proyectos. Campos alineados exactamente. */
+@Data
+public class ProjectEventDto {
+    private String eventId;
+    private String timestamp;
+    private Long   projectId;
+    private String projectName;
+    private String type;        // Tipo de proyecto: SOFTWARE | CONSULTING | INFRASTRUCTURE
+    private String status;
+    private Long   managerId;
+    /** NUEVO: discriminador del evento para generar mensajes contextuales. */
+    private String eventType;
+    private Long   assignedEmployeeId;
+    private String assignedEmployeeName;
+}
+</file>
+
+<file path="ms-notif/src/main/resources/application.yml">
+server:
+  port: 8085
+
+spring:
+  application:
+    name: ms-notif
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:notif_db}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:1234}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVER:localhost:9092}
+    consumer:
+      group-id: notif-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false          # FIX: ignora __TypeId__ del productor
+        spring.json.value.default.type: com.innovatech.notif.dto.ProjectEventDto
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+</file>
+
 <file path="ms-proyectos/pom.xml">
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -11724,6 +10847,300 @@ public class ProjectController {
 }
 </file>
 
+<file path="ms-proyectos/src/main/java/com/innovatech/proyectos/messaging/ProjectEventProducer.java">
+package com.innovatech.proyectos.messaging;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class ProjectEventProducer {
+
+    private static final String TOPIC = "innovatech.project.created";
+    private final KafkaTemplate<String, ProjectEventMessage> kafkaTemplate;
+
+    // ── API pública ──────────────────────────────────────────────────────────
+
+    /** Emite PROJECT_CREATED al crear un proyecto. */
+    public void publishProjectCreated(Long projectId, String projectName,
+                                      String type, String status, Long managerId) {
+        sendEvent(buildEvent(projectId, projectName, type, status, managerId,
+                  "PROJECT_CREATED", null, null));
+    }
+
+    /** Emite STATUS_CHANGED al actualizar estado de un proyecto. */
+    public void publishProjectEvent(Long projectId, String projectName,
+                                    String type, String status, Long managerId) {
+        sendEvent(buildEvent(projectId, projectName, type, status, managerId,
+                  "STATUS_CHANGED", null, null));
+    }
+
+    /** Emite RESOURCE_ASSIGNED al asignar un empleado a un proyecto. */
+    public void publishResourceAssigned(Long projectId, String projectName,
+                                        Long employeeId, String employeeName) {
+        sendEvent(buildEvent(projectId, projectName, null, null, null,
+                  "RESOURCE_ASSIGNED", employeeId, employeeName));
+    }
+
+    /** Emite RESOURCE_UNASSIGNED al desasignar un empleado de un proyecto. */
+    public void publishResourceUnassigned(Long projectId, String projectName,
+                                          Long employeeId, String employeeName) {
+        sendEvent(buildEvent(projectId, projectName, null, null, null,
+                  "RESOURCE_UNASSIGNED", employeeId, employeeName));
+    }
+
+    // ── Helpers privados ─────────────────────────────────────────────────────
+
+    private ProjectEventMessage buildEvent(Long projectId, String projectName,
+                                           String type, String status, Long managerId,
+                                           String eventType, Long employeeId, String employeeName) {
+        return ProjectEventMessage.builder()
+                .eventId(UUID.randomUUID().toString())
+                .timestamp(Instant.now().toString())
+                .projectId(projectId).projectName(projectName)
+                .type(type).status(status).managerId(managerId)
+                .eventType(eventType)
+                .assignedEmployeeId(employeeId)
+                .assignedEmployeeName(employeeName)
+                .build();
+    }
+
+    private void sendEvent(ProjectEventMessage event) {
+        kafkaTemplate.send(TOPIC, event.getEventId(), event)
+                .whenComplete((result, ex) -> {
+                    if (ex == null) {
+                        log.info("📤 [Kafka] '{}' publicado: proyecto='{}' offset={}",
+                                event.getEventType(), event.getProjectName(),
+                                result.getRecordMetadata().offset());
+                    } else {
+                        log.error("❌ [Kafka] Error publicando '{}': {}",
+                                event.getEventType(), ex.getMessage());
+                    }
+                });
+    }
+}
+</file>
+
+<file path="ms-proyectos/src/main/java/com/innovatech/proyectos/service/ProjectService.java">
+package com.innovatech.proyectos.service;
+
+import com.innovatech.proyectos.dto.ProjectDtos.*;
+import com.innovatech.proyectos.messaging.ProjectEventProducer;
+import com.innovatech.proyectos.model.Project;
+import com.innovatech.proyectos.model.ProjectNote;
+import com.innovatech.proyectos.patterns.factory.ProjectFactory;
+import com.innovatech.proyectos.patterns.factory.ProjectFactoryProvider;
+import com.innovatech.proyectos.repository.IProjectNoteRepository;
+import com.innovatech.proyectos.repository.IProjectRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class ProjectService {
+
+    private final IProjectRepository projectRepository;
+    private final IProjectNoteRepository noteRepository;
+    private final ProjectFactoryProvider factoryProvider;
+    private final ProjectEventProducer eventProducer;
+
+    @Transactional
+    public ProjectResponse createProject(CreateProjectRequest request) {
+        ProjectFactory factory = factoryProvider.getFactory(request.getType());
+        Project project = factory.createProject(request);
+        Project saved = projectRepository.save(project);
+        eventProducer.publishProjectCreated(saved.getId(), saved.getName(),
+                saved.getType().name(), saved.getStatus().name(), saved.getManagerId());
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public ProjectResponse updateProject(Long id, UpdateProjectRequest request) {
+        Project project = findOrThrow(id);
+        if (request.getName() != null && !request.getName().isBlank())
+            project.setName(request.getName());
+        if (request.getDescription() != null)
+            project.setDescription(request.getDescription());
+        if (request.getStatus() != null)
+            project.setStatus(request.getStatus());
+        return toResponse(projectRepository.save(project));
+    }
+
+    /**
+     * FIX: publica evento de cambio de estado para que ms-recursos
+     * libere automáticamente los recursos cuando el proyecto finaliza.
+     */
+    @Transactional
+    public ProjectResponse updateStatus(Long id, UpdateStatusRequest request) {
+        Project project = findOrThrow(id);
+        project.setStatus(request.getStatus());
+        Project saved = projectRepository.save(project);
+        // FIX: notifica a consumidores; ms-recursos libera recursos si status=COMPLETED
+        eventProducer.publishProjectEvent(saved.getId(), saved.getName(),
+                saved.getType().name(), saved.getStatus().name(), saved.getManagerId());
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public ProjectResponse assignEmployee(Long projectId, AssignEmployeeRequest request) {
+        Project project = findOrThrow(projectId);
+        project.setAssignedUserId(request.getEmployeeId());
+        project.setAssignedUserName(request.getEmployeeName());
+        Project saved = projectRepository.save(project);
+        // NUEVO: dispara evento para que ms-recursos marque el recurso como no disponible
+        eventProducer.publishResourceAssigned(
+                saved.getId(), saved.getName(),
+                request.getEmployeeId(), request.getEmployeeName());
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public ProjectResponse unassignEmployee(Long projectId) {
+        Project project = findOrThrow(projectId);
+        Long   prevEmployeeId   = project.getAssignedUserId();
+        String prevEmployeeName = project.getAssignedUserName();
+        project.setAssignedUserId(null);
+        project.setAssignedUserName(null);
+        Project saved = projectRepository.save(project);
+        // NUEVO: dispara evento para que ms-recursos libere el recurso
+        if (prevEmployeeId != null) {
+            eventProducer.publishResourceUnassigned(
+                    saved.getId(), saved.getName(),
+                    prevEmployeeId, prevEmployeeName);
+        }
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public void deleteProject(Long id) {
+        if (!projectRepository.existsById(id))
+            throw new IllegalArgumentException("Proyecto no encontrado con id: " + id);
+        projectRepository.deleteById(id);
+    }
+
+    // ── Consultas ─────────────────────────────────────────────────────────────
+
+    public List<ProjectResponse> getAllProjects() {
+        return projectRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public ProjectResponse getProjectById(Long id) { return toResponse(findOrThrow(id)); }
+
+    public List<ProjectResponse> getProjectsByStatus(Project.ProjectStatus status) {
+        return projectRepository.findByStatus(status).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public List<ProjectResponse> getProjectsByType(Project.ProjectType type) {
+        return projectRepository.findByType(type).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public List<ProjectResponse> getProjectsByManager(Long managerId) {
+        return projectRepository.findByManagerId(managerId).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public List<ProjectResponse> getProjectsByAssignedUser(Long userId) {
+        return projectRepository.findByAssignedUserId(userId).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public long getTotalCount() { return projectRepository.count(); }
+
+    // ── Notas ─────────────────────────────────────────────────────────────────
+
+    @Transactional
+    public NoteResponse addNote(Long projectId, CreateNoteRequest request,
+                                Long authorId, String authorName) {
+        findOrThrow(projectId);
+        ProjectNote note = ProjectNote.builder()
+                .projectId(projectId).authorId(authorId).authorName(authorName)
+                .content(request.getContent()).status(ProjectNote.NoteStatus.PENDING).build();
+        return toNoteResponse(noteRepository.save(note));
+    }
+
+    public List<NoteResponse> getNotesByProject(Long projectId) {
+        findOrThrow(projectId);
+        return noteRepository.findByProjectId(projectId).stream()
+                .map(this::toNoteResponse).collect(Collectors.toList());
+    }
+
+    /**
+     * FIX Bug 8: valida que un MANAGER solo revise notas de proyectos que gestiona.
+     * @param reviewerRole rol extraído del JWT ("ADMIN" | "MANAGER")
+     */
+    @Transactional
+    public NoteResponse reviewNote(Long projectId, Long noteId,
+                                   ReviewNoteRequest request,
+                                   Long reviewerId, String reviewerName,
+                                   String reviewerRole) {
+        Project project = findOrThrow(projectId);
+
+        // FIX Bug 8: MANAGER solo puede revisar sus propios proyectos
+        if ("MANAGER".equalsIgnoreCase(reviewerRole)) {
+            if (project.getManagerId() == null || !project.getManagerId().equals(reviewerId)) {
+                throw new IllegalArgumentException(
+                    "El manager (id=" + reviewerId + ") no gestiona el proyecto " + projectId);
+            }
+        }
+
+        ProjectNote note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new IllegalArgumentException("Nota no encontrada con id: " + noteId));
+
+        if (!note.getProjectId().equals(projectId))
+            throw new IllegalArgumentException("La nota no pertenece al proyecto indicado");
+
+        if (note.getStatus() != ProjectNote.NoteStatus.PENDING)
+            throw new IllegalArgumentException("Solo se pueden revisar notas en estado PENDING");
+
+        note.setStatus(request.getStatus());
+        note.setReviewerId(reviewerId);
+        note.setReviewerName(reviewerName);
+        note.setReviewComment(request.getReviewComment());
+        note.setReviewedAt(LocalDateTime.now());
+
+        return toNoteResponse(noteRepository.save(note));
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private Project findOrThrow(Long id) {
+        return projectRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Proyecto no encontrado con id: " + id));
+    }
+
+    private ProjectResponse toResponse(Project p) {
+        return ProjectResponse.builder()
+                .id(p.getId()).name(p.getName()).description(p.getDescription())
+                .type(p.getType().name()).status(p.getStatus().name())
+                .managerId(p.getManagerId()).assignedUserId(p.getAssignedUserId())
+                .assignedUserName(p.getAssignedUserName()).startDate(p.getStartDate())
+                .endDate(p.getEndDate()).techStack(p.getTechStack())
+                .repositoryUrl(p.getRepositoryUrl()).clientName(p.getClientName())
+                .slaDays(p.getSlaDays()).cloudProvider(p.getCloudProvider())
+                .budgetUsd(p.getBudgetUsd()).createdAt(p.getCreatedAt()).build();
+    }
+
+    private NoteResponse toNoteResponse(ProjectNote n) {
+        return NoteResponse.builder()
+                .id(n.getId()).projectId(n.getProjectId()).authorId(n.getAuthorId())
+                .authorName(n.getAuthorName()).content(n.getContent())
+                .status(n.getStatus().name()).reviewerId(n.getReviewerId())
+                .reviewerName(n.getReviewerName()).reviewComment(n.getReviewComment())
+                .createdAt(n.getCreatedAt()).reviewedAt(n.getReviewedAt()).build();
+    }
+}
+</file>
+
 <file path="ms-proyectos/src/test/java/com/innovatech/proyectos/JwtExtractorTest.java">
 package com.innovatech.proyectos;
 
@@ -12079,6 +11496,472 @@ public class GlobalExceptionHandler {
 }
 </file>
 
+<file path="ms-recursos/src/main/java/com/innovatech/recursos/dto/ResourceDtos.java">
+package com.innovatech.recursos.dto;
+
+import com.innovatech.recursos.model.Resource;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+public class ResourceDtos {
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class CreateResourceRequest {
+        @NotBlank(message = "El nombre es obligatorio")       private String name;
+        @Email @NotBlank(message = "El email es obligatorio") private String email;
+        @NotBlank(message = "El departamento es obligatorio") private String department;
+        private Resource.ResourceRole role;
+        private String skills;
+        /** NUEVO: ID del usuario en ms-auth. Necesario para la correlación Kafka automática. */
+        private Long userId;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class AssignToProjectRequest {
+        @NotNull(message = "El ID del proyecto es obligatorio")
+        private Long projectId;
+
+        @NotBlank(message = "El nombre del proyecto es obligatorio")
+        private String projectName;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ResourceResponse {
+        private Long   id;
+        private String name;
+        private String email;
+        private String department;
+        private String role;
+        private boolean available;
+        private String skills;
+        private Long   assignedProjectId;
+        private String assignedProjectName;
+        /** NUEVO: expuesto para que el frontend pueda vincular con el perfil del usuario. */
+        private Long   userId;
+        private LocalDateTime createdAt;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class UpdateAvailabilityRequest {
+        private boolean available;
+    }
+}
+</file>
+
+<file path="ms-recursos/src/main/java/com/innovatech/recursos/messaging/ProjectEventConsumer.java">
+package com.innovatech.recursos.messaging;
+
+import com.innovatech.recursos.service.ResourceService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class ProjectEventConsumer {
+
+    private final ResourceService resourceService;
+
+    @KafkaListener(
+        topics   = "innovatech.project.created",
+        groupId  = "${spring.kafka.consumer.group-id}"
+    )
+    public void consumeProjectEvent(ProjectEventMessage event) {
+        String eventType = event.getEventType();
+        log.info("📨 [Kafka] Evento '{}' recibido — proyecto='{}' (id={})",
+                eventType, event.getProjectName(), event.getProjectId());
+
+        if (eventType == null) {
+            // Compatibilidad con mensajes sin eventType (legado): revisar solo por status
+            if ("COMPLETED".equalsIgnoreCase(event.getStatus())) {
+                liberarPorProyecto(event.getProjectId());
+            }
+            return;
+        }
+
+        switch (eventType.toUpperCase()) {
+            case "RESOURCE_ASSIGNED" -> {
+                if (event.getAssignedEmployeeId() != null) {
+                    resourceService.assignToProjectByUserId(
+                            event.getAssignedEmployeeId(),
+                            event.getProjectId(),
+                            event.getProjectName());
+                }
+            }
+            case "RESOURCE_UNASSIGNED" -> {
+                if (event.getAssignedEmployeeId() != null) {
+                    resourceService.releaseByUserId(event.getAssignedEmployeeId());
+                }
+            }
+            case "STATUS_CHANGED" -> {
+                if ("COMPLETED".equalsIgnoreCase(event.getStatus()) ||
+                    "CANCELLED".equalsIgnoreCase(event.getStatus())) {
+                    liberarPorProyecto(event.getProjectId());
+                }
+            }
+            default -> log.debug("ℹ️  [Kafka] Evento '{}' ignorado en ms-recursos.", eventType);
+        }
+    }
+
+    private void liberarPorProyecto(Long projectId) {
+        int released = resourceService.releaseByProject(projectId);
+        log.info("✅ [Kafka] {} recurso(s) liberado(s) — proyecto id={}", released, projectId);
+    }
+}
+</file>
+
+<file path="ms-recursos/src/main/java/com/innovatech/recursos/repository/IResourceRepository.java">
+package com.innovatech.recursos.repository;
+
+import com.innovatech.recursos.model.Resource;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface IResourceRepository {
+    Optional<Resource> findById(Long id);
+    List<Resource>     findAll();
+    List<Resource>     findByAvailable(boolean available);
+    List<Resource>     findByDepartment(String department);
+    List<Resource>     findByRole(Resource.ResourceRole role);
+    List<Resource>     findByAssignedProjectId(Long assignedProjectId);
+    boolean            existsByEmail(String email);
+    Resource           save(Resource resource);
+    void               deleteById(Long id);
+    /** NUEVO: busca recurso por el userId de ms-auth para correlación Kafka. */
+    Optional<Resource> findByUserId(Long userId);
+}
+</file>
+
+<file path="ms-recursos/src/main/java/com/innovatech/recursos/repository/JpaResourceRepository.java">
+package com.innovatech.recursos.repository;
+
+import com.innovatech.recursos.model.Resource;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface JpaResourceRepository extends JpaRepository<Resource, Long>, IResourceRepository {
+    @Override List<Resource>     findByAvailable(boolean available);
+    @Override List<Resource>     findByDepartment(String department);
+    @Override List<Resource>     findByRole(Resource.ResourceRole role);
+    @Override List<Resource>     findByAssignedProjectId(Long assignedProjectId);
+    @Override boolean            existsByEmail(String email);
+    @Override Optional<Resource> findByUserId(Long userId); // NUEVO
+}
+</file>
+
+<file path="ms-recursos/src/main/java/com/innovatech/recursos/service/ResourceService.java">
+package com.innovatech.recursos.service;
+
+import com.innovatech.recursos.dto.ResourceDtos.*;
+import com.innovatech.recursos.model.Resource;
+import com.innovatech.recursos.repository.IResourceRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class ResourceService {
+
+    private final IResourceRepository resourceRepository;
+
+    // ... métodos existentes sin cambios ...
+
+        @Transactional
+    public ResourceResponse createResource(CreateResourceRequest req) {
+        if (resourceRepository.existsByEmail(req.getEmail()))
+            throw new IllegalArgumentException("Ya existe un recurso con el email: " + req.getEmail());
+        Resource.ResourceRole role = req.getRole() != null ? req.getRole() : Resource.ResourceRole.DEVELOPER;
+        Resource resource = Resource.builder()
+                .name(req.getName()).email(req.getEmail()).department(req.getDepartment())
+                .role(role).skills(req.getSkills()).available(true)
+                .userId(req.getUserId())  // NUEVO: vincula con ms-auth
+                .build();
+        return toResponse(resourceRepository.save(resource));
+    }
+
+    public List<ResourceResponse> getAllResources() {
+        return resourceRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public List<ResourceResponse> getAvailableResources() {
+        return resourceRepository.findByAvailable(true).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public List<ResourceResponse> getByDepartment(String department) {
+        return resourceRepository.findByDepartment(department).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public ResourceResponse getById(Long id) { return toResponse(findOrThrow(id)); }
+
+
+    @Transactional
+    public void assignToProjectByUserId(Long userId, Long projectId, String projectName) {
+        resourceRepository.findByUserId(userId).ifPresentOrElse(r -> {
+            r.setAvailable(false);
+            r.setAssignedProjectId(projectId);
+            r.setAssignedProjectName(projectName);
+            resourceRepository.save(r);
+            log.info("✅ [Kafka] Recurso id={} (userId={}) → no disponible. Proyecto id={}",
+                    r.getId(), userId, projectId);
+        }, () -> log.warn("⚠️  [Kafka] No se encontró Resource con userId={}. " +
+                "Asegúrate de que el recurso fue creado con userId vinculado.", userId));
+    }
+
+    @Transactional
+    public void releaseByUserId(Long userId) {
+        resourceRepository.findByUserId(userId).ifPresent(r -> {
+            r.setAvailable(true);
+            r.setAssignedProjectId(null);
+            r.setAssignedProjectName(null);
+            resourceRepository.save(r);
+            log.info("✅ [Kafka] Recurso id={} (userId={}) → disponible.", r.getId(), userId);
+        });
+    }
+
+    @Transactional
+    public ResourceResponse updateAvailability(Long id, UpdateAvailabilityRequest req) {
+        Resource r = findOrThrow(id);
+        r.setAvailable(req.isAvailable());
+        return toResponse(resourceRepository.save(r));
+    }
+
+    @Transactional
+    public ResourceResponse assignToProject(Long resourceId, Long projectId, String projectName) {
+        Resource r = findOrThrow(resourceId);
+        r.setAssignedProjectId(projectId);
+        r.setAssignedProjectName(projectName);
+        r.setAvailable(false);
+        return toResponse(resourceRepository.save(r));
+    }
+
+    /**
+     * FIX Bug 3 + assignToProject: libera TODOS los recursos de un proyecto.
+     * Llamado desde el consumidor Kafka cuando status=COMPLETED,
+     * y desde el endpoint PUT /api/resources/capacity para invocación manual.
+     * @return cantidad de recursos liberados
+     */
+    @Transactional
+    public int releaseByProject(Long projectId) {
+        List<Resource> assigned = resourceRepository.findByAssignedProjectId(projectId);
+        assigned.forEach(r -> {
+            r.setAvailable(true);
+            r.setAssignedProjectId(null);
+            r.setAssignedProjectName(null);
+            resourceRepository.save(r);
+        });
+        return assigned.size();
+    }
+
+    @Transactional
+    public void deleteResource(Long id) {
+        findOrThrow(id);
+        resourceRepository.deleteById(id);
+    }
+
+    private Resource findOrThrow(Long id) {
+        return resourceRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Recurso no encontrado con id: " + id));
+    }
+
+    private ResourceResponse toResponse(Resource r) {
+        return ResourceResponse.builder()
+                .id(r.getId()).name(r.getName()).email(r.getEmail())
+                .department(r.getDepartment()).role(r.getRole().name())
+                .available(r.isAvailable()).skills(r.getSkills())
+                .assignedProjectId(r.getAssignedProjectId())
+                .assignedProjectName(r.getAssignedProjectName())
+                .createdAt(r.getCreatedAt()).build();
+    }
+}
+</file>
+
+<file path="ms-recursos/src/test/java/com/innovatech/recursos/ResourceServiceTest.java">
+package com.innovatech.recursos;
+
+import com.innovatech.recursos.dto.ResourceDtos.*;
+import com.innovatech.recursos.model.Resource;
+import com.innovatech.recursos.repository.IResourceRepository;
+import com.innovatech.recursos.service.ResourceService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("ResourceService — Pruebas Unitarias")
+class ResourceServiceTest {
+
+    @Mock private IResourceRepository resourceRepository;
+    @InjectMocks private ResourceService resourceService;
+
+    private Resource sampleResource;
+
+    @BeforeEach
+    void setUp() {
+        sampleResource = Resource.builder()
+                .id(1L).name("Ana López").email("ana@test.cl").department("IT")
+                .role(Resource.ResourceRole.DEVELOPER).available(true)
+                .skills("Java,Spring").createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    @Nested
+    @DisplayName("createResource()")
+    class CreateResourceTests {
+
+        @Test
+        @DisplayName("✅ Crea recurso y retorna response")
+        void createResource_savesAndReturnsResponse() {
+            CreateResourceRequest req = new CreateResourceRequest(
+                    "Ana López", "ana@test.cl", "IT", Resource.ResourceRole.DEVELOPER, "Java", null);
+            when(resourceRepository.existsByEmail("ana@test.cl")).thenReturn(false);
+            when(resourceRepository.save(any(Resource.class))).thenReturn(sampleResource);
+
+            ResourceResponse res = resourceService.createResource(req);
+
+            assertThat(res.getName()).isEqualTo("Ana López");
+            assertThat(res.isAvailable()).isTrue();
+            verify(resourceRepository).save(any(Resource.class));
+        }
+
+        @Test
+        @DisplayName("✅ Asigna rol DEVELOPER si no se especifica")
+        void createResource_noRole_assignsDeveloper() {
+            CreateResourceRequest req = new CreateResourceRequest(
+                    "Test", "test@test.cl", "IT", null, null, null);
+            when(resourceRepository.existsByEmail(anyString())).thenReturn(false);
+            when(resourceRepository.save(any())).thenReturn(sampleResource);
+            resourceService.createResource(req);
+            verify(resourceRepository).save(argThat(r -> r.getRole() == Resource.ResourceRole.DEVELOPER));
+        }
+
+        @Test
+        @DisplayName("❌ Lanza excepción si email ya existe")
+        void createResource_duplicateEmail_throwsException() {
+            CreateResourceRequest req = new CreateResourceRequest(
+                    "Test", "ana@test.cl", "IT", null, null, null);
+            when(resourceRepository.existsByEmail("ana@test.cl")).thenReturn(true);
+            assertThatThrownBy(() -> resourceService.createResource(req))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("email");
+        }
+    }
+
+    @Nested
+    @DisplayName("Consultas")
+    class QueryTests {
+
+        @Test
+        @DisplayName("✅ getAllResources retorna lista")
+        void getAllResources_returnsList() {
+            when(resourceRepository.findAll()).thenReturn(List.of(sampleResource));
+            assertThat(resourceService.getAllResources()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("✅ getAvailableResources retorna solo disponibles")
+        void getAvailableResources_returnsAvailable() {
+            when(resourceRepository.findByAvailable(true)).thenReturn(List.of(sampleResource));
+            assertThat(resourceService.getAvailableResources()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("✅ getByDepartment filtra correctamente")
+        void getByDepartment_returnsFiltered() {
+            when(resourceRepository.findByDepartment("IT")).thenReturn(List.of(sampleResource));
+            assertThat(resourceService.getByDepartment("IT")).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("✅ getById retorna recurso correcto")
+        void getById_existingId_returnsResource() {
+            when(resourceRepository.findById(1L)).thenReturn(Optional.of(sampleResource));
+            assertThat(resourceService.getById(1L).getId()).isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("❌ getById lanza excepción si no existe")
+        void getById_nonExisting_throwsException() {
+            when(resourceRepository.findById(99L)).thenReturn(Optional.empty());
+            assertThatThrownBy(() -> resourceService.getById(99L))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("no encontrado");
+        }
+    }
+
+    @Nested
+    @DisplayName("Modificaciones")
+    class MutationTests {
+
+        @Test
+        @DisplayName("✅ updateAvailability cambia disponibilidad")
+        void updateAvailability_changesFlag() {
+            when(resourceRepository.findById(1L)).thenReturn(Optional.of(sampleResource));
+            when(resourceRepository.save(any())).thenReturn(sampleResource);
+            resourceService.updateAvailability(1L, new UpdateAvailabilityRequest(false));
+            verify(resourceRepository).save(argThat(r -> !r.isAvailable()));
+        }
+
+        @Test
+        @DisplayName("✅ assignToProject marca recurso como no disponible")
+        void assignToProject_setsProjectAndUnavailable() {
+            when(resourceRepository.findById(1L)).thenReturn(Optional.of(sampleResource));
+            when(resourceRepository.save(any())).thenReturn(sampleResource);
+            resourceService.assignToProject(1L, 10L, "Proyecto Alpha");
+            verify(resourceRepository).save(argThat(r -> !r.isAvailable() && r.getAssignedProjectId().equals(10L)));
+        }
+
+        @Test
+        @DisplayName("✅ deleteResource elimina recurso existente")
+        void deleteResource_existingId_deletes() {
+            when(resourceRepository.findById(1L)).thenReturn(Optional.of(sampleResource));
+            doNothing().when(resourceRepository).deleteById(1L);
+            assertThatCode(() -> resourceService.deleteResource(1L)).doesNotThrowAnyException();
+            verify(resourceRepository).deleteById(1L);
+        }
+
+        @Test
+        @DisplayName("❌ deleteResource lanza excepción si no existe")
+        void deleteResource_nonExisting_throwsException() {
+            when(resourceRepository.findById(99L)).thenReturn(Optional.empty());
+            assertThatThrownBy(() -> resourceService.deleteResource(99L))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("no encontrado");
+            verify(resourceRepository, never()).deleteById(any());
+        }
+    }
+}
+</file>
+
 <file path="docker-compose.yml">
 services:
   postgres:
@@ -12331,6 +12214,134 @@ volumes:
   sonarqube_logs:
 </file>
 
+<file path="ms-analitica/src/main/java/com/innovatech/analitica/service/AnaliticaService.java">
+package com.innovatech.analitica.service;
+
+import com.innovatech.analitica.dto.KpiResponse;
+import com.innovatech.analitica.dto.KpiSummaryResponse;
+import com.innovatech.analitica.dto.ProjectEventDto;
+import com.innovatech.analitica.model.ProjectMetric;
+import com.innovatech.analitica.repository.ProjectMetricRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+@Service
+@Slf4j 
+@RequiredArgsConstructor
+public class AnaliticaService {
+
+    private final ProjectMetricRepository metricRepository;
+
+    @Transactional
+    public void processProjectEvent(ProjectEventDto event) {
+        // Ignorar eventos de recursos: no afectan métricas de proyecto
+        if (event.getEventType() != null &&
+            (event.getEventType().startsWith("RESOURCE_"))) {
+            return;
+        }
+
+        ProjectMetric metric = metricRepository.findByProjectId(event.getProjectId())
+                .orElse(ProjectMetric.builder()
+                        .projectId(event.getProjectId())
+                        .completionPercentage(0.0)
+                        .activeTasks(0)
+                        .build());
+
+        if (event.getProjectName() != null) {
+            metric.setProjectName(event.getProjectName());
+        }
+
+        if (event.getStatus() != null) {
+            metric.setProjectStatus(event.getStatus());
+            metric.setCompletionPercentage(computeCompletionPercentage(event.getStatus()));
+            // Ajusta tareas activas según el ciclo de vida
+            switch (event.getStatus().toUpperCase()) {
+                case "IN_PROGRESS" -> metric.setActiveTasks(
+                        Math.max(1, metric.getActiveTasks() + 1));
+                case "ON_HOLD"     -> { /* mantiene activeTasks actuales */ }
+                case "COMPLETED", "CANCELLED" -> metric.setActiveTasks(0);
+                case "PLANNING"    -> metric.setActiveTasks(
+                        metric.getActiveTasks() == 0 ? 0 : metric.getActiveTasks());
+                default -> {}
+            }
+        }
+
+        metric.setLastUpdated(LocalDateTime.now());
+        metricRepository.save(metric);
+
+        log.info("📊 [Kafka] Métrica actualizada — proyecto='{}' status='{}' completion={}%",
+                metric.getProjectName(), metric.getProjectStatus(),
+                metric.getCompletionPercentage());
+    }
+
+    public List<KpiResponse> getGeneralMetrics() {
+        return metricRepository.findAll().stream()
+                .map(this::toKpiResponse)
+                .collect(Collectors.toList());
+    }
+
+    public KpiResponse getProjectMetrics(Long projectId) {
+        return metricRepository.findByProjectId(projectId)
+                .map(this::toKpiResponse)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Métricas no encontradas para el proyecto ID: " + projectId));
+    }
+
+    public KpiSummaryResponse getSummary() {
+        List<ProjectMetric> all = metricRepository.findAll();
+
+        double avgCompletion = all.stream()
+                .mapToDouble(ProjectMetric::getCompletionPercentage)
+                .average()
+                .orElse(0.0);
+
+        long active = all.stream()
+                .filter(m -> "IN_PROGRESS".equals(m.getProjectStatus()))
+                .count();
+
+        long completed = all.stream()
+                .filter(m -> "COMPLETED".equals(m.getProjectStatus()))
+                .count();
+
+        return KpiSummaryResponse.builder()
+                .totalProjects(all.size())
+                .averageCompletion(Math.round(avgCompletion * 100.0) / 100.0)
+                .activeProjects(active)
+                .completedProjects(completed)
+                .metrics(all.stream().map(this::toKpiResponse).collect(Collectors.toList()))
+                .build();
+    }
+
+    private KpiResponse toKpiResponse(ProjectMetric m) {
+        return KpiResponse.builder()
+                .projectId(m.getProjectId())
+                .projectStatus(m.getProjectStatus())
+                .completionPercentage(m.getCompletionPercentage())
+                .activeTasks(m.getActiveTasks())
+                .lastUpdated(m.getLastUpdated())
+                .build();
+    }
+
+    private double computeCompletionPercentage(String status) {
+        return switch (status.toUpperCase()) {
+            case "PLANNING"    -> 10.0;
+            case "IN_PROGRESS" -> 50.0;
+            case "ON_HOLD"     -> 35.0;
+            case "COMPLETED"   -> 100.0;
+            case "CANCELLED"   -> 0.0;
+            default            -> 0.0;
+        };
+    }
+}
+</file>
+
 <file path="ms-auth/src/main/resources/application.properties">
 spring.application.name=ms-auth
 # PUERTO CORRECTO PARA AUTH
@@ -12354,103 +12365,6 @@ app.jwt.expiration-ms=600000
 # Swagger / OpenAPI (springdoc)
 springdoc.swagger-ui.path=/swagger-ui.html
 springdoc.api-docs.path=/v3/api-docs
-</file>
-
-<file path="ms-notif/src/main/java/com/innovatech/notif/service/NotificationService.java">
-package com.innovatech.notif.service;
-
-import com.innovatech.notif.dto.ProjectEventDto;
-import com.innovatech.notif.model.Notification;
-import com.innovatech.notif.repository.NotificationRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-@Service
-@RequiredArgsConstructor
-public class NotificationService {
-
-    private final NotificationRepository notificationRepository;
-
-    @Transactional
-    public Notification createNotification(Long targetId, String targetType, String message) {
-        Notification notification = Notification.builder()
-                .targetId(targetId)
-                .targetType(targetType)
-                .message(message)
-                .read(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        return notificationRepository.save(notification);
-    }
-
-    @Transactional
-    public void processProjectEvent(ProjectEventDto event) {
-        String msg = buildMessage(event);
-        createNotification(event.getProjectId(), "PROJECT", msg);
-        log.info("🔔 [Kafka] Notificación creada — proyecto id={}: {}", event.getProjectId(), msg);
-    }
-
-    public List<Notification> getNotificationsForProject(Long projectId) {
-        return notificationRepository.findByTargetIdAndTargetTypeOrderByCreatedAtDesc(projectId, "PROJECT");
-    }
-
-    public List<Notification> getUnreadForProject(Long projectId) {
-        return notificationRepository.findByTargetIdAndTargetTypeAndReadFalse(projectId, "PROJECT");
-    }
-
-    @Transactional
-    public void markAsRead(Long notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new IllegalArgumentException("Notificación no encontrada con id: " + notificationId));
-        notification.setRead(true);
-        notificationRepository.save(notification);
-    }
-
-    private String buildMessage(ProjectEventDto event) {
-        String name      = event.getProjectName() != null
-                           ? event.getProjectName()
-                           : "Proyecto ID " + event.getProjectId();
-        String eventType = event.getEventType() != null ? event.getEventType().toUpperCase() : "";
-        String status    = event.getStatus() != null ? event.getStatus() : "";
-
-        return switch (eventType) {
-            case "PROJECT_CREATED" ->
-                String.format("✅ Nuevo proyecto creado: \"%s\" — Estado inicial: %s.", name, status);
-            case "STATUS_CHANGED"  ->
-                buildStatusMessage(name, status);
-            case "RESOURCE_ASSIGNED" -> {
-                String emp = event.getAssignedEmployeeName() != null
-                             ? event.getAssignedEmployeeName()
-                             : "ID " + event.getAssignedEmployeeId();
-                yield String.format("👤 %s fue asignado/a al proyecto \"%s\".", emp, name);
-            }
-            case "RESOURCE_UNASSIGNED" -> {
-                String emp = event.getAssignedEmployeeName() != null
-                             ? event.getAssignedEmployeeName()
-                             : "ID " + event.getAssignedEmployeeId();
-                yield String.format("🚪 %s fue removido/a del proyecto \"%s\".", emp, name);
-            }
-            default ->
-                // Fallback por compatibilidad con mensajes sin eventType
-                buildStatusMessage(name, status);
-        };
-    }
-
-    private String buildStatusMessage(String projectName, String status) {
-        return switch (status.toUpperCase()) {
-            case "IN_PROGRESS" -> String.format("🚀 El proyecto \"%s\" pasó a estado En Progreso.", projectName);
-            case "ON_HOLD"     -> String.format("⏸️  El proyecto \"%s\" fue puesto en pausa.", projectName);
-            case "COMPLETED"   -> String.format("🎉 El proyecto \"%s\" fue completado exitosamente.", projectName);
-            case "CANCELLED"   -> String.format("❌ El proyecto \"%s\" fue cancelado.", projectName);
-            case "PLANNING"    -> String.format("📋 El proyecto \"%s\" volvió a estado de Planificación.", projectName);
-            default            -> String.format("ℹ️  Proyecto \"%s\" — nuevo estado: %s.", projectName, status);
-        };
-    }
-}
 </file>
 
 <file path="ms-notif/src/test/java/com/innovatech/notif/NotificationServiceTest.java">
@@ -12572,6 +12486,104 @@ class NotificationServiceTest {
             assertThatThrownBy(() -> notificationService.markAsRead(99L))
                     .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("99");
         }
+    }
+}
+</file>
+
+<file path="ms-notif/src/main/java/com/innovatech/notif/service/NotificationService.java">
+package com.innovatech.notif.service;
+
+import com.innovatech.notif.dto.ProjectEventDto;
+import com.innovatech.notif.model.Notification;
+import com.innovatech.notif.repository.NotificationRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+@Service
+@Slf4j 
+@RequiredArgsConstructor
+public class NotificationService {
+
+    private final NotificationRepository notificationRepository;
+
+    @Transactional
+    public Notification createNotification(Long targetId, String targetType, String message) {
+        Notification notification = Notification.builder()
+                .targetId(targetId)
+                .targetType(targetType)
+                .message(message)
+                .read(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+        return notificationRepository.save(notification);
+    }
+
+    @Transactional
+    public void processProjectEvent(ProjectEventDto event) {
+        String msg = buildMessage(event);
+        createNotification(event.getProjectId(), "PROJECT", msg);
+        log.info("🔔 [Kafka] Notificación creada — proyecto id={}: {}", event.getProjectId(), msg);
+    }
+
+    public List<Notification> getNotificationsForProject(Long projectId) {
+        return notificationRepository.findByTargetIdAndTargetTypeOrderByCreatedAtDesc(projectId, "PROJECT");
+    }
+
+    public List<Notification> getUnreadForProject(Long projectId) {
+        return notificationRepository.findByTargetIdAndTargetTypeAndReadFalse(projectId, "PROJECT");
+    }
+
+    @Transactional
+    public void markAsRead(Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new IllegalArgumentException("Notificación no encontrada con id: " + notificationId));
+        notification.setRead(true);
+        notificationRepository.save(notification);
+    }
+
+    private String buildMessage(ProjectEventDto event) {
+        String name      = event.getProjectName() != null
+                           ? event.getProjectName()
+                           : "Proyecto ID " + event.getProjectId();
+        String eventType = event.getEventType() != null ? event.getEventType().toUpperCase() : "";
+        String status    = event.getStatus() != null ? event.getStatus() : "";
+
+        return switch (eventType) {
+            case "PROJECT_CREATED" ->
+                String.format("✅ Nuevo proyecto creado: \"%s\" — Estado inicial: %s.", name, status);
+            case "STATUS_CHANGED"  ->
+                buildStatusMessage(name, status);
+            case "RESOURCE_ASSIGNED" -> {
+                String emp = event.getAssignedEmployeeName() != null
+                             ? event.getAssignedEmployeeName()
+                             : "ID " + event.getAssignedEmployeeId();
+                yield String.format("👤 %s fue asignado/a al proyecto \"%s\".", emp, name);
+            }
+            case "RESOURCE_UNASSIGNED" -> {
+                String emp = event.getAssignedEmployeeName() != null
+                             ? event.getAssignedEmployeeName()
+                             : "ID " + event.getAssignedEmployeeId();
+                yield String.format("🚪 %s fue removido/a del proyecto \"%s\".", emp, name);
+            }
+            default ->
+                // Fallback por compatibilidad con mensajes sin eventType
+                buildStatusMessage(name, status);
+        };
+    }
+
+    private String buildStatusMessage(String projectName, String status) {
+        return switch (status.toUpperCase()) {
+            case "IN_PROGRESS" -> String.format("🚀 El proyecto \"%s\" pasó a estado En Progreso.", projectName);
+            case "ON_HOLD"     -> String.format("⏸️  El proyecto \"%s\" fue puesto en pausa.", projectName);
+            case "COMPLETED"   -> String.format("🎉 El proyecto \"%s\" fue completado exitosamente.", projectName);
+            case "CANCELLED"   -> String.format("❌ El proyecto \"%s\" fue cancelado.", projectName);
+            case "PLANNING"    -> String.format("📋 El proyecto \"%s\" volvió a estado de Planificación.", projectName);
+            default            -> String.format("ℹ️  Proyecto \"%s\" — nuevo estado: %s.", projectName, status);
+        };
     }
 }
 </file>
