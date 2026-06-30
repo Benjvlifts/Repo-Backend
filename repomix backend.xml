@@ -8029,36 +8029,6 @@ public interface JpaProjectRepository extends JpaRepository<Project, Long>, IPro
 }
 </file>
 
-<file path="ms-proyectos/src/main/resources/application.properties">
-spring.application.name=ms-proyectos
-server.port=8082
-
-spring.datasource.url=jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:proyectos_db}
-spring.datasource.username=${DB_USER:postgres}
-spring.datasource.password=${DB_PASSWORD:postgres}
-spring.datasource.driver-class-name=org.postgresql.Driver
-
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
-
-server.error.include-message=always
-
-# Kafka
-spring.kafka.bootstrap-servers=${KAFKA_SERVER:localhost:9092}
-spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
-spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer
-
-# FIX Bug 1: secreto compartido con ms-auth para verificar firma HMAC
-app.jwt.secret=${JWT_SECRET:5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437}
-
-# FIX Bug 7: URL base configurable para repositorios SOFTWARE
-app.repository.base-url=${REPO_BASE_URL:https://github.com/innovatech/}
-
-springdoc.swagger-ui.path=/swagger-ui.html
-springdoc.api-docs.path=/v3/api-docs
-</file>
-
 <file path="ms-proyectos/src/test/java/com/innovatech/proyectos/ProjectServiceTest.java">
 package com.innovatech.proyectos;
 
@@ -11141,6 +11111,36 @@ public class ProjectService {
 }
 </file>
 
+<file path="ms-proyectos/src/main/resources/application.properties">
+spring.application.name=ms-proyectos
+server.port=8082
+
+spring.datasource.url=jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:proyectos_db}
+spring.datasource.username=${DB_USER:postgres}
+spring.datasource.password=${DB_PASSWORD:postgres}
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+
+server.error.include-message=always
+
+# Kafka
+spring.kafka.bootstrap-servers=${KAFKA_SERVER:localhost:9092}
+spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
+spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer
+
+# FIX Bug 1: secreto compartido con ms-auth para verificar firma HMAC
+app.jwt.secret=${JWT_SECRET}
+
+# FIX Bug 7: URL base configurable para repositorios SOFTWARE
+app.repository.base-url=${REPO_BASE_URL:https://github.com/innovatech/}
+
+springdoc.swagger-ui.path=/swagger-ui.html
+springdoc.api-docs.path=/v3/api-docs
+</file>
+
 <file path="ms-proyectos/src/test/java/com/innovatech/proyectos/JwtExtractorTest.java">
 package com.innovatech.proyectos;
 
@@ -12342,31 +12342,6 @@ public class AnaliticaService {
 }
 </file>
 
-<file path="ms-auth/src/main/resources/application.properties">
-spring.application.name=ms-auth
-# PUERTO CORRECTO PARA AUTH
-server.port=8081
-
-# Configuración de Base de Datos
-spring.datasource.url=jdbc:postgresql://${DB_HOST:localhost}:5432/auth_db
-spring.datasource.username=postgres
-spring.datasource.password=${DB_PASSWORD:1234}
-spring.datasource.driver-class-name=org.postgresql.Driver
-
-# JPA / Hibernate
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
-
-# CONFIGURACIÓN JWT
-app.jwt.secret=${JWT_SECRET:mi-secreto}
-app.jwt.expiration-ms=600000
-
-# Swagger / OpenAPI (springdoc)
-springdoc.swagger-ui.path=/swagger-ui.html
-springdoc.api-docs.path=/v3/api-docs
-</file>
-
 <file path="ms-notif/src/test/java/com/innovatech/notif/NotificationServiceTest.java">
 package com.innovatech.notif;
 
@@ -12488,6 +12463,31 @@ class NotificationServiceTest {
         }
     }
 }
+</file>
+
+<file path="ms-auth/src/main/resources/application.properties">
+spring.application.name=ms-auth
+# PUERTO CORRECTO PARA AUTH
+server.port=8081
+
+# Configuración de Base de Datos
+spring.datasource.url=jdbc:postgresql://${DB_HOST:localhost}:5432/auth_db
+spring.datasource.username=postgres
+spring.datasource.password=${DB_PASSWORD:1234}
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# JPA / Hibernate
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+
+# CONFIGURACIÓN JWT
+app.jwt.secret=${JWT_SECRET}
+app.jwt.expiration-ms=600000
+
+# Swagger / OpenAPI (springdoc)
+springdoc.swagger-ui.path=/swagger-ui.html
+springdoc.api-docs.path=/v3/api-docs
 </file>
 
 <file path="ms-notif/src/main/java/com/innovatech/notif/service/NotificationService.java">

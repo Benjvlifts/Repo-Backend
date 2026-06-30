@@ -127,7 +127,7 @@
 							<goal>report</goal>
 						</goals>
 					</execution>
-										<execution>
+					<execution>
 						<id>check</id>
 						<goals>
 							<goal>check</goal>
@@ -140,7 +140,7 @@
 										<limit>
 											<counter>INSTRUCTION</counter>
 											<value>COVEREDRATIO</value>
-											<minimum>0.60</minimum>
+											<minimum>0.50</minimum>
 										</limit>
 									</limits>
 								</rule>

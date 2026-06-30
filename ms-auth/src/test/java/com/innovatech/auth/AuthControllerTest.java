@@ -15,6 +15,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -33,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(AuthController.class)
 @Import(SecurityConfig.class)
+@TestPropertySource(properties = {"app.jwt.secret=un-secreto-muy-largo-y-seguro-para-pruebas-locales"})
 @DisplayName("AuthController — Pruebas de Capa Web")
 class AuthControllerTest {
 
