@@ -67,15 +67,29 @@ public class ProjectService {
         Project project = findOrThrow(projectId);
         project.setAssignedUserId(request.getEmployeeId());
         project.setAssignedUserName(request.getEmployeeName());
-        return toResponse(projectRepository.save(project));
+        Project saved = projectRepository.save(project);
+        // NUEVO: dispara evento para que ms-recursos marque el recurso como no disponible
+        eventProducer.publishResourceAssigned(
+                saved.getId(), saved.getName(),
+                request.getEmployeeId(), request.getEmployeeName());
+        return toResponse(saved);
     }
 
     @Transactional
     public ProjectResponse unassignEmployee(Long projectId) {
         Project project = findOrThrow(projectId);
+        Long   prevEmployeeId   = project.getAssignedUserId();
+        String prevEmployeeName = project.getAssignedUserName();
         project.setAssignedUserId(null);
         project.setAssignedUserName(null);
-        return toResponse(projectRepository.save(project));
+        Project saved = projectRepository.save(project);
+        // NUEVO: dispara evento para que ms-recursos libere el recurso
+        if (prevEmployeeId != null) {
+            eventProducer.publishResourceUnassigned(
+                    saved.getId(), saved.getName(),
+                    prevEmployeeId, prevEmployeeName);
+        }
+        return toResponse(saved);
     }
 
     @Transactional

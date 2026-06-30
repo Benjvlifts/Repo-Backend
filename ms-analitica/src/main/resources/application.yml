@@ -25,6 +25,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false          # FIX: ignora __TypeId__ del productor
         spring.json.value.default.type: com.innovatech.analitica.dto.ProjectEventDto
 
 springdoc:

@@ -54,6 +54,13 @@ public class Resource {
     @Column(name = "assigned_project_name")
     private String assignedProjectName;
 
+    /**
+     * NUEVO: ID del usuario en ms-auth que corresponde a este recurso.
+     * Permite correlacionar eventos Kafka (employeeId) con registros locales.
+     */
+    @Column(name = "user_id", unique = true)
+    private Long userId;
+
     @Column(name = "created_at", updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

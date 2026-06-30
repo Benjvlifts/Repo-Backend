@@ -4,28 +4,35 @@ import com.innovatech.recursos.dto.ResourceDtos.*;
 import com.innovatech.recursos.model.Resource;
 import com.innovatech.recursos.repository.IResourceRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ResourceService {
 
     private final IResourceRepository resourceRepository;
 
     // ... métodos existentes sin cambios ...
 
-    @Transactional
+        @Transactional
     public ResourceResponse createResource(CreateResourceRequest req) {
         if (resourceRepository.existsByEmail(req.getEmail()))
             throw new IllegalArgumentException("Ya existe un recurso con el email: " + req.getEmail());
         Resource.ResourceRole role = req.getRole() != null ? req.getRole() : Resource.ResourceRole.DEVELOPER;
         Resource resource = Resource.builder()
                 .name(req.getName()).email(req.getEmail()).department(req.getDepartment())
-                .role(role).skills(req.getSkills()).available(true).build();
+                .role(role).skills(req.getSkills()).available(true)
+                .userId(req.getUserId())  // NUEVO: vincula con ms-auth
+                .build();
         return toResponse(resourceRepository.save(resource));
     }
 
@@ -42,6 +49,31 @@ public class ResourceService {
     }
 
     public ResourceResponse getById(Long id) { return toResponse(findOrThrow(id)); }
+
+
+    @Transactional
+    public void assignToProjectByUserId(Long userId, Long projectId, String projectName) {
+        resourceRepository.findByUserId(userId).ifPresentOrElse(r -> {
+            r.setAvailable(false);
+            r.setAssignedProjectId(projectId);
+            r.setAssignedProjectName(projectName);
+            resourceRepository.save(r);
+            log.info("✅ [Kafka] Recurso id={} (userId={}) → no disponible. Proyecto id={}",
+                    r.getId(), userId, projectId);
+        }, () -> log.warn("⚠️  [Kafka] No se encontró Resource con userId={}. " +
+                "Asegúrate de que el recurso fue creado con userId vinculado.", userId));
+    }
+
+    @Transactional
+    public void releaseByUserId(Long userId) {
+        resourceRepository.findByUserId(userId).ifPresent(r -> {
+            r.setAvailable(true);
+            r.setAssignedProjectId(null);
+            r.setAssignedProjectName(null);
+            resourceRepository.save(r);
+            log.info("✅ [Kafka] Recurso id={} (userId={}) → disponible.", r.getId(), userId);
+        });
+    }
 
     @Transactional
     public ResourceResponse updateAvailability(Long id, UpdateAvailabilityRequest req) {

@@ -724,18 +724,18 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "project_metrics")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ProjectMetric {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, unique = true)
     private Long projectId;
+
+    /** NUEVO: nombre del proyecto para mostrar en el dashboard de KPIs. */
+    @Column
+    private String projectName;
 
     @Column(nullable = false)
     private String projectStatus;
@@ -1770,10 +1770,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO del evento publicado en Kafka cuando se crea un proyecto.
- * Este mensaje es consumido por ms-recursos.
- */
 @Data
 @Builder
 @NoArgsConstructor
@@ -1781,11 +1777,19 @@ import lombok.NoArgsConstructor;
 public class ProjectEventMessage {
     private String eventId;
     private String timestamp;
-    private Long projectId;
+    private Long   projectId;
     private String projectName;
-    private String type;
-    private String status;
-    private Long managerId;
+    private String type;       // Tipo de proyecto: SOFTWARE | CONSULTING | INFRASTRUCTURE
+    private String status;     // Estado: PLANNING | IN_PROGRESS | ON_HOLD | COMPLETED | CANCELLED
+    private Long   managerId;
+
+    // ── Campos nuevos para enrutamiento y recursos ──────────────────────────
+    /** Discriminador del evento: PROJECT_CREATED | STATUS_CHANGED | RESOURCE_ASSIGNED | RESOURCE_UNASSIGNED */
+    private String eventType;
+    /** ID del empleado en ms-auth; solo presente en eventos RESOURCE_* */
+    private Long   assignedEmployeeId;
+    /** Nombre del empleado; solo presente en eventos RESOURCE_* */
+    private String assignedEmployeeName;
 }
 </file>
 
@@ -2295,21 +2299,22 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO del evento Kafka recibido desde ms-proyectos.
- * Contiene la información del proyecto creado.
- */
+/** Espejo del DTO producido por ms-proyectos. Campos alineados exactamente. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProjectEventMessage {
     private String eventId;
     private String timestamp;
-    private Long projectId;
+    private Long   projectId;
     private String projectName;
     private String type;
     private String status;
-    private Long managerId;
+    private Long   managerId;
+    // Campos nuevos
+    private String eventType;
+    private Long   assignedEmployeeId;
+    private String assignedEmployeeName;
 }
 </file>
 
@@ -2369,6 +2374,13 @@ public class Resource {
 
     @Column(name = "assigned_project_name")
     private String assignedProjectName;
+
+    /**
+     * NUEVO: ID del usuario en ms-auth que corresponde a este recurso.
+     * Permite correlacionar eventos Kafka (employeeId) con registros locales.
+     */
+    @Column(name = "user_id", unique = true)
+    private Long userId;
 
     @Column(name = "created_at", updatable = false)
     @Builder.Default
@@ -5873,80 +5885,6 @@ taskkill /PID <PID> /F
 **Instituto DuocUC — 2026 — DSY1106 Desarrollo Fullstack III —*
 </file>
 
-<file path="innovatech-bff-valdes-munoz/src/index.js">
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
-
-const authRoutes      = require('./routes/authRoutes');
-const projectRoutes   = require('./routes/projectRoutes');
-const resourceRoutes  = require('./routes/resourceRoutes');
-const analiticaRoutes = require('./routes/analiticaRoutes');
-const notifRoutes     = require('./routes/notifRoutes');
-const errorHandler    = require('./middleware/errorHandler');
-const { httpClient }  = require('./services/httpClient');
-
-const app  = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(helmet());
-
-// FIX: origin '*' con credentials:true viola la especificación CORS;
-// el navegador rechaza la respuesta cuando ambos están activos simultáneamente.
-// Solución: origin explícito + lista extensible vía variable de entorno.
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',');
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Permite peticiones sin origin (Postman, curl, proxies server-side)
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS: origen no permitido → ${origin}`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-app.use(express.json());
-app.use(morgan('combined'));
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { error: 'Demasiadas solicitudes. Intente más tarde.' },
-}));
-
-app.use('/api/auth',              authRoutes);
-app.use('/api/projects',          projectRoutes);
-app.use('/api/resources',         resourceRoutes);
-app.use('/api/v1/analitica',      analiticaRoutes);
-app.use('/api/v1/notificaciones', notifRoutes);
-
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'UP',
-    service: 'innovatech-bff',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-    circuitBreakers: httpClient.getBreakersStatus(),
-  });
-});
-
-app.use(errorHandler);
-
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`✅ BFF Innovatech corriendo en http://localhost:${PORT}`);
-    console.log(`   ms-auth      → ${process.env.MS_AUTH_URL}`);
-    console.log(`   ms-proyectos → ${process.env.MS_PROYECTOS_URL}`);
-    console.log(`   ms-recursos  → ${process.env.MS_RECURSOS_URL}`);
-  });
-}
-
-module.exports = app;
-</file>
-
 <file path="innovatech-bff-valdes-munoz/src/routes/authRoutes.js">
 const express = require('express');
 const router = express.Router();
@@ -5991,231 +5929,6 @@ router.get('/users/:id', async (req, res, next) => {
 });
 
 module.exports = router;
-</file>
-
-<file path="innovatech-bff-valdes-munoz/src/services/httpClient.js">
-const axios = require('axios');
-const { CircuitBreaker } = require('./CircuitBreaker');
-
-// ROOT CAUSE BUG 1: docker-compose pasa sólo el host:puerto (ej. http://ms-auth:8081).
-// El path de la API (/api/auth, /api/projects…) debe concatenarse aquí,
-// no asumirse dentro de la variable de entorno.
-const strip = (url) => (url || '').replace(/\/+$/, '');
-
-const MS_AUTH_BASE      = strip(process.env.MS_AUTH_URL)      || 'http://localhost:8081';
-const MS_PROYECTOS_BASE = strip(process.env.MS_PROYECTOS_URL) || 'http://localhost:8082';
-const MS_RECURSOS_BASE  = strip(process.env.MS_RECURSOS_URL)  || 'http://localhost:8083';
-const MS_ANALITICA_BASE = strip(process.env.MS_ANALITICA_URL) || 'http://localhost:8084';
-const MS_NOTIF_BASE     = strip(process.env.MS_NOTIF_URL)     || 'http://localhost:8085';
-
-const CB_THRESHOLD = parseInt(process.env.CIRCUIT_BREAKER_THRESHOLD || '5', 10);
-const CB_TIMEOUT   = parseInt(process.env.CIRCUIT_BREAKER_TIMEOUT   || '30000', 10);
-
-const authBreaker      = new CircuitBreaker({ name: 'ms-auth',      failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
-const proyectosBreaker = new CircuitBreaker({ name: 'ms-proyectos', failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
-const recursosBreaker  = new CircuitBreaker({ name: 'ms-recursos',  failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
-const analiticaBreaker = new CircuitBreaker({ name: 'ms-analitica', failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
-const notifBreaker     = new CircuitBreaker({ name: 'ms-notif',     failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
-
-// Los paths de API coinciden con @RequestMapping de cada controlador Spring Boot
-const authClient      = axios.create({ baseURL: `${MS_AUTH_BASE}/api/auth`,               timeout: 5000 });
-const proyectosClient = axios.create({ baseURL: `${MS_PROYECTOS_BASE}/api/projects`,      timeout: 5000 });
-const recursosClient  = axios.create({ baseURL: `${MS_RECURSOS_BASE}/api/resources`,      timeout: 5000 });
-const analiticaClient = axios.create({ baseURL: `${MS_ANALITICA_BASE}/api/v1/analitica`,  timeout: 5000 });
-const notifClient     = axios.create({ baseURL: `${MS_NOTIF_BASE}/api/v1/notificaciones`, timeout: 5000 });
-
-const httpClient = {
-  auth: {
-    register:    (data)               => authBreaker.execute(() => authClient.post('/register', data).then(r => r.data)),
-    login:       (data)               => authBreaker.execute(() => authClient.post('/login', data).then(r => r.data)),
-    validate:    (token)              => authBreaker.execute(() => authClient.post('/validate', { token }).then(r => r.data), () => ({ valid: false })),
-    getUsers:    (headers)            => authBreaker.execute(() => authClient.get('/users', { headers }).then(r => r.data)),
-    getUserById: (id, headers)        => authBreaker.execute(() => authClient.get(`/users/${id}`, { headers }).then(r => r.data)),
-    getEmployees:(headers)            => authBreaker.execute(() => authClient.get('/users', { headers }).then(r =>
-      r.data.filter(u => u.role === 'EMPLOYEE')
-    )),
-  },
-
-  projects: {
-    create:           (data, headers)             => proyectosBreaker.execute(() => proyectosClient.post('', data, { headers }).then(r => r.data)),
-    getAll:           (params, headers)           => proyectosBreaker.execute(() => proyectosClient.get('', { params, headers }).then(r => r.data), () => []),
-    getById:          (id, headers)               => proyectosBreaker.execute(() => proyectosClient.get(`/${id}`, { headers }).then(r => r.data)),
-    update:           (id, data, headers)         => proyectosBreaker.execute(() => proyectosClient.put(`/${id}`, data, { headers }).then(r => r.data)),
-    updateStatus:     (id, data, headers)         => proyectosBreaker.execute(() => proyectosClient.patch(`/${id}/status`, data, { headers }).then(r => r.data)),
-    delete:           (id, headers)               => proyectosBreaker.execute(() => proyectosClient.delete(`/${id}`, { headers }).then(r => r.data)),
-    assignEmployee:   (id, data, headers)         => proyectosBreaker.execute(() => proyectosClient.patch(`/${id}/assign`, data, { headers }).then(r => r.data)),
-    unassignEmployee: (id, headers)               => proyectosBreaker.execute(() => proyectosClient.delete(`/${id}/assign`, { headers }).then(r => r.data)),
-    getNotes:         (id, headers)               => proyectosBreaker.execute(() => proyectosClient.get(`/${id}/notes`, { headers }).then(r => r.data), () => []),
-    addNote:          (id, data, headers)         => proyectosBreaker.execute(() => proyectosClient.post(`/${id}/notes`, data, { headers }).then(r => r.data)),
-    reviewNote:       (id, noteId, data, headers) => proyectosBreaker.execute(() => proyectosClient.patch(`/${id}/notes/${noteId}/review`, data, { headers }).then(r => r.data)),
-  },
-
-  resources: {
-    create:             (data, headers)     => recursosBreaker.execute(() => recursosClient.post('', data, { headers }).then(r => r.data)),
-    getAll:             (headers)           => recursosBreaker.execute(() => recursosClient.get('', { headers }).then(r => r.data), () => []),
-    getAvailable:       (headers)           => recursosBreaker.execute(() => recursosClient.get('/available', { headers }).then(r => r.data), () => []),
-    getById:            (id, headers)       => recursosBreaker.execute(() => recursosClient.get(`/${id}`, { headers }).then(r => r.data)),
-    getByDepartment:    (dept, headers)     => recursosBreaker.execute(() => recursosClient.get(`/department/${dept}`, { headers }).then(r => r.data)),
-    updateAvailability: (id, data, headers) => recursosBreaker.execute(() => recursosClient.patch(`/${id}/availability`, data, { headers }).then(r => r.data)),
-    assignToProject:    (id, data, headers) => recursosBreaker.execute(() => recursosClient.patch(`/${id}/assign`, data, { headers }).then(r => r.data)),
-    delete:             (id, headers)       => recursosBreaker.execute(() => recursosClient.delete(`/${id}`, { headers }).then(r => r.data)),
-  },
-
-  analitica: {
-    getAllMetrics:      (headers)            => analiticaBreaker.execute(() => analiticaClient.get('/metricas', { headers }).then(r => r.data), () => []),
-    getProjectMetrics: (projectId, headers) => analiticaBreaker.execute(() => analiticaClient.get(`/metricas/proyecto/${projectId}`, { headers }).then(r => r.data)),
-    getSummary:        (headers)            => analiticaBreaker.execute(() => analiticaClient.get('/resumen', { headers }).then(r => r.data), () => null),
-  },
-
-  notificaciones: {
-    getByProject: (projectId, headers) => notifBreaker.execute(() => notifClient.get(`/proyecto/${projectId}`, { headers }).then(r => r.data), () => []),
-    getUnread:    (projectId, headers) => notifBreaker.execute(() => notifClient.get(`/proyecto/${projectId}/no-leidas`, { headers }).then(r => r.data), () => []),
-    markAsRead:   (id, headers)        => notifBreaker.execute(() => notifClient.patch(`/${id}/read`, {}, { headers }).then(r => r.data)),
-  },
-
-  getBreakersStatus: () => ({
-    auth:      authBreaker.getStatus(),
-    proyectos: proyectosBreaker.getStatus(),
-    recursos:  recursosBreaker.getStatus(),
-    analitica: analiticaBreaker.getStatus(),
-    notif:     notifBreaker.getStatus(),
-  }),
-};
-
-module.exports = { httpClient, authBreaker, proyectosBreaker, recursosBreaker, analiticaBreaker, notifBreaker };
-</file>
-
-<file path="kong-gateway/kong.yml">
-_format_version: "3.0"
-_transform: true
-
-services:
-  - name: ms-auth-service
-    url: http://host.docker.internal:8081
-    connect_timeout: 5000
-    read_timeout: 8000
-
-  - name: ms-proyectos-service
-    url: http://host.docker.internal:8082
-    connect_timeout: 5000
-    read_timeout: 8000
-
-  - name: ms-recursos-service
-    url: http://host.docker.internal:8083
-    connect_timeout: 5000
-    read_timeout: 8000
-
-  - name: ms-analitica-service
-    url: http://host.docker.internal:8084
-    connect_timeout: 5000
-    read_timeout: 10000
-
-  - name: ms-notif-service
-    url: http://host.docker.internal:8085
-    connect_timeout: 5000
-    read_timeout: 8000
-
-routes:
-  - name: auth-login
-    service: ms-auth-service
-    paths: ["/api/auth/login"]
-    methods: ["POST"]
-    strip_path: false
-
-  - name: auth-register
-    service: ms-auth-service
-    paths: ["/api/auth/register"]
-    methods: ["POST"]
-    strip_path: false
-
-  - name: auth-protected
-    service: ms-auth-service
-    paths: ["/api/auth"]
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-    strip_path: false
-
-  - name: proyectos-all
-    service: ms-proyectos-service
-    paths: ["/api/projects"]
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-    strip_path: false
-
-  - name: recursos-all
-    service: ms-recursos-service
-    paths: ["/api/resources"]
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-    strip_path: false
-
-  - name: analitica-all
-    service: ms-analitica-service
-    paths: ["/api/v1/analitica"]
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-    strip_path: false
-
-  - name: notif-all
-    service: ms-notif-service
-    paths: ["/api/v1/notificaciones"]
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-    strip_path: false
-
-plugins:
-  - name: rate-limiting
-    config:
-      minute: 100
-      policy: local
-      error_message: "Demasiadas solicitudes. Intente más tarde."
-
-  - name: rate-limiting
-    route: auth-login
-    config:
-      minute: 10
-      policy: local
-      error_message: "Demasiados intentos de login. Espera 1 minuto."
-
-  - name: jwt
-    route: auth-protected
-    config:
-      secret_is_base64: false
-      claims_to_verify: ["exp"]
-
-  - name: jwt
-    route: proyectos-all
-    config:
-      secret_is_base64: false
-      claims_to_verify: ["exp"]
-
-  - name: jwt
-    route: recursos-all
-    config:
-      secret_is_base64: false
-      claims_to_verify: ["exp"]
-
-  - name: jwt
-    route: analitica-all
-    config:
-      secret_is_base64: false
-      claims_to_verify: ["exp"]
-
-  - name: jwt
-    route: notif-all
-    config:
-      secret_is_base64: false
-      claims_to_verify: ["exp"]
-
-  - name: cors
-    config:
-      origins: ["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"]
-      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-      headers: ["Authorization", "Content-Type", "Accept"]
-      exposed_headers: ["Authorization"]
-      credentials: true
-      max_age: 3600
-
-consumers:
-  - username: innovatech-app
-    jwt_secrets:
-      - secret: "5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437"
-        algorithm: HS256
 </file>
 
 <file path="ms-analitica/src/main/java/com/innovatech/analitica/config/GlobalExceptionHandler.java">
@@ -6320,16 +6033,20 @@ package com.innovatech.analitica.dto;
 
 import lombok.Data;
 
-// FIX Mismatch Kafka: campos alineados exactamente con ProjectEventMessage (ms-proyectos)
+/** Espejo del ProjectEventMessage de ms-proyectos. Campos alineados exactamente. */
 @Data
 public class ProjectEventDto {
     private String eventId;
     private String timestamp;
-    private Long projectId;
+    private Long   projectId;
     private String projectName;
-    private String type;
-    private String status;
-    private Long managerId;
+    private String type;        // Tipo de proyecto: SOFTWARE | CONSULTING | INFRASTRUCTURE
+    private String status;      // Estado del proyecto
+    private Long   managerId;
+    /** NUEVO: discriminador del evento para lógica de negocio en consumidores. */
+    private String eventType;   // PROJECT_CREATED | STATUS_CHANGED | RESOURCE_ASSIGNED | RESOURCE_UNASSIGNED
+    private Long   assignedEmployeeId;
+    private String assignedEmployeeName;
 }
 </file>
 
@@ -6361,6 +6078,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false          # FIX: ignora __TypeId__ del productor
         spring.json.value.default.type: com.innovatech.analitica.dto.ProjectEventDto
 
 springdoc:
@@ -7844,16 +7562,20 @@ package com.innovatech.notif.dto;
 
 import lombok.Data;
 
-// FIX Mismatch Kafka: campos alineados exactamente con ProjectEventMessage (ms-proyectos)
+/** Espejo del ProjectEventMessage de ms-proyectos. Campos alineados exactamente. */
 @Data
 public class ProjectEventDto {
     private String eventId;
     private String timestamp;
-    private Long projectId;
+    private Long   projectId;
     private String projectName;
-    private String type;
+    private String type;        // Tipo de proyecto: SOFTWARE | CONSULTING | INFRASTRUCTURE
     private String status;
-    private Long managerId;
+    private Long   managerId;
+    /** NUEVO: discriminador del evento para generar mensajes contextuales. */
+    private String eventType;
+    private Long   assignedEmployeeId;
+    private String assignedEmployeeName;
 }
 </file>
 
@@ -7961,6 +7683,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false          # FIX: ignora __TypeId__ del productor
         spring.json.value.default.type: com.innovatech.notif.dto.ProjectEventDto
 
 springdoc:
@@ -8345,34 +8068,64 @@ public class ProjectEventProducer {
     private static final String TOPIC = "innovatech.project.created";
     private final KafkaTemplate<String, ProjectEventMessage> kafkaTemplate;
 
-    /**
-     * Método genérico — usado tanto al crear un proyecto como al cambiar su estado.
-     * FIX: permite que ms-recursos libere recursos cuando status=COMPLETED.
-     */
+    // ── API pública ──────────────────────────────────────────────────────────
+
+    /** Emite PROJECT_CREATED al crear un proyecto. */
+    public void publishProjectCreated(Long projectId, String projectName,
+                                      String type, String status, Long managerId) {
+        sendEvent(buildEvent(projectId, projectName, type, status, managerId,
+                  "PROJECT_CREATED", null, null));
+    }
+
+    /** Emite STATUS_CHANGED al actualizar estado de un proyecto. */
     public void publishProjectEvent(Long projectId, String projectName,
-                                     String type, String status, Long managerId) {
-        ProjectEventMessage event = ProjectEventMessage.builder()
+                                    String type, String status, Long managerId) {
+        sendEvent(buildEvent(projectId, projectName, type, status, managerId,
+                  "STATUS_CHANGED", null, null));
+    }
+
+    /** Emite RESOURCE_ASSIGNED al asignar un empleado a un proyecto. */
+    public void publishResourceAssigned(Long projectId, String projectName,
+                                        Long employeeId, String employeeName) {
+        sendEvent(buildEvent(projectId, projectName, null, null, null,
+                  "RESOURCE_ASSIGNED", employeeId, employeeName));
+    }
+
+    /** Emite RESOURCE_UNASSIGNED al desasignar un empleado de un proyecto. */
+    public void publishResourceUnassigned(Long projectId, String projectName,
+                                          Long employeeId, String employeeName) {
+        sendEvent(buildEvent(projectId, projectName, null, null, null,
+                  "RESOURCE_UNASSIGNED", employeeId, employeeName));
+    }
+
+    // ── Helpers privados ─────────────────────────────────────────────────────
+
+    private ProjectEventMessage buildEvent(Long projectId, String projectName,
+                                           String type, String status, Long managerId,
+                                           String eventType, Long employeeId, String employeeName) {
+        return ProjectEventMessage.builder()
                 .eventId(UUID.randomUUID().toString())
                 .timestamp(Instant.now().toString())
                 .projectId(projectId).projectName(projectName)
                 .type(type).status(status).managerId(managerId)
+                .eventType(eventType)
+                .assignedEmployeeId(employeeId)
+                .assignedEmployeeName(employeeName)
                 .build();
+    }
 
+    private void sendEvent(ProjectEventMessage event) {
         kafkaTemplate.send(TOPIC, event.getEventId(), event)
                 .whenComplete((result, ex) -> {
                     if (ex == null) {
-                        log.info("📤 [Kafka] Evento publicado: proyecto='{}' status='{}' offset={}",
-                                projectName, status, result.getRecordMetadata().offset());
+                        log.info("📤 [Kafka] '{}' publicado: proyecto='{}' offset={}",
+                                event.getEventType(), event.getProjectName(),
+                                result.getRecordMetadata().offset());
                     } else {
-                        log.error("❌ [Kafka] Error publicando evento: {}", ex.getMessage());
+                        log.error("❌ [Kafka] Error publicando '{}': {}",
+                                event.getEventType(), ex.getMessage());
                     }
                 });
-    }
-
-    /** Mantiene la firma original para no romper llamadas existentes. */
-    public void publishProjectCreated(Long projectId, String projectName,
-                                       String type, String status, Long managerId) {
-        publishProjectEvent(projectId, projectName, type, status, managerId);
     }
 }
 </file>
@@ -8727,15 +8480,29 @@ public class ProjectService {
         Project project = findOrThrow(projectId);
         project.setAssignedUserId(request.getEmployeeId());
         project.setAssignedUserName(request.getEmployeeName());
-        return toResponse(projectRepository.save(project));
+        Project saved = projectRepository.save(project);
+        // NUEVO: dispara evento para que ms-recursos marque el recurso como no disponible
+        eventProducer.publishResourceAssigned(
+                saved.getId(), saved.getName(),
+                request.getEmployeeId(), request.getEmployeeName());
+        return toResponse(saved);
     }
 
     @Transactional
     public ProjectResponse unassignEmployee(Long projectId) {
         Project project = findOrThrow(projectId);
+        Long   prevEmployeeId   = project.getAssignedUserId();
+        String prevEmployeeName = project.getAssignedUserName();
         project.setAssignedUserId(null);
         project.setAssignedUserName(null);
-        return toResponse(projectRepository.save(project));
+        Project saved = projectRepository.save(project);
+        // NUEVO: dispara evento para que ms-recursos libere el recurso
+        if (prevEmployeeId != null) {
+            eventProducer.publishResourceUnassigned(
+                    saved.getId(), saved.getName(),
+                    prevEmployeeId, prevEmployeeName);
+        }
+        return toResponse(saved);
     }
 
     @Transactional
@@ -9584,18 +9351,13 @@ public class ResourceDtos {
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class CreateResourceRequest {
-        @NotBlank(message = "El nombre es obligatorio")
-        private String name;
-
-        @Email(message = "Formato de email inválido")
-        @NotBlank(message = "El email es obligatorio")
-        private String email;
-
-        @NotBlank(message = "El departamento es obligatorio")
-        private String department;
-
+        @NotBlank(message = "El nombre es obligatorio")       private String name;
+        @Email @NotBlank(message = "El email es obligatorio") private String email;
+        @NotBlank(message = "El departamento es obligatorio") private String department;
         private Resource.ResourceRole role;
         private String skills;
+        /** NUEVO: ID del usuario en ms-auth. Necesario para la correlación Kafka automática. */
+        private Long userId;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
@@ -9609,15 +9371,17 @@ public class ResourceDtos {
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ResourceResponse {
-        private Long id;
+        private Long   id;
         private String name;
         private String email;
         private String department;
         private String role;
         private boolean available;
         private String skills;
-        private Long assignedProjectId;
+        private Long   assignedProjectId;
         private String assignedProjectName;
+        /** NUEVO: expuesto para que el frontend pueda vincular con el perfil del usuario. */
+        private Long   userId;
         private LocalDateTime createdAt;
     }
 
@@ -9637,11 +9401,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-/**
- * FIX Bug 3: implementa lógica de negocio real.
- * Cuando ms-proyectos publica un evento con status=COMPLETED,
- * este consumidor libera automáticamente los recursos asignados.
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -9650,22 +9409,49 @@ public class ProjectEventConsumer {
     private final ResourceService resourceService;
 
     @KafkaListener(
-        topics = "innovatech.project.created",
-        groupId = "${spring.kafka.consumer.group-id}"
+        topics   = "innovatech.project.created",
+        groupId  = "${spring.kafka.consumer.group-id}"
     )
-    public void consumeProjectCreated(ProjectEventMessage event) {
-        log.info("📨 [Kafka] Evento recibido: proyecto='{}' (id={}, tipo={}, estado={})",
-            event.getProjectName(), event.getProjectId(), event.getType(), event.getStatus());
+    public void consumeProjectEvent(ProjectEventMessage event) {
+        String eventType = event.getEventType();
+        log.info("📨 [Kafka] Evento '{}' recibido — proyecto='{}' (id={})",
+                eventType, event.getProjectName(), event.getProjectId());
 
-        if ("COMPLETED".equalsIgnoreCase(event.getStatus())) {
-            // FIX: libera automáticamente la capacidad cuando un proyecto finaliza
-            int released = resourceService.releaseByProject(event.getProjectId());
-            log.info("✅ [Kafka] {} recurso(s) liberado(s) — proyecto id={} completado.",
-                released, event.getProjectId());
-        } else {
-            log.info("ℹ️  [Kafka] Evento '{}' procesado. Estado: {}. Sin acción de capacidad requerida.",
-                event.getProjectName(), event.getStatus());
+        if (eventType == null) {
+            // Compatibilidad con mensajes sin eventType (legado): revisar solo por status
+            if ("COMPLETED".equalsIgnoreCase(event.getStatus())) {
+                liberarPorProyecto(event.getProjectId());
+            }
+            return;
         }
+
+        switch (eventType.toUpperCase()) {
+            case "RESOURCE_ASSIGNED" -> {
+                if (event.getAssignedEmployeeId() != null) {
+                    resourceService.assignToProjectByUserId(
+                            event.getAssignedEmployeeId(),
+                            event.getProjectId(),
+                            event.getProjectName());
+                }
+            }
+            case "RESOURCE_UNASSIGNED" -> {
+                if (event.getAssignedEmployeeId() != null) {
+                    resourceService.releaseByUserId(event.getAssignedEmployeeId());
+                }
+            }
+            case "STATUS_CHANGED" -> {
+                if ("COMPLETED".equalsIgnoreCase(event.getStatus()) ||
+                    "CANCELLED".equalsIgnoreCase(event.getStatus())) {
+                    liberarPorProyecto(event.getProjectId());
+                }
+            }
+            default -> log.debug("ℹ️  [Kafka] Evento '{}' ignorado en ms-recursos.", eventType);
+        }
+    }
+
+    private void liberarPorProyecto(Long projectId) {
+        int released = resourceService.releaseByProject(projectId);
+        log.info("✅ [Kafka] {} recurso(s) liberado(s) — proyecto id={}", released, projectId);
     }
 }
 </file>
@@ -9680,15 +9466,16 @@ import java.util.Optional;
 
 public interface IResourceRepository {
     Optional<Resource> findById(Long id);
-    List<Resource> findAll();
-    List<Resource> findByAvailable(boolean available);
-    List<Resource> findByDepartment(String department);
-    List<Resource> findByRole(Resource.ResourceRole role);
-    // FIX Bug 3: necesario para liberar recursos cuando un proyecto finaliza
-    List<Resource> findByAssignedProjectId(Long assignedProjectId);
-    boolean existsByEmail(String email);
-    Resource save(Resource resource);
-    void deleteById(Long id);
+    List<Resource>     findAll();
+    List<Resource>     findByAvailable(boolean available);
+    List<Resource>     findByDepartment(String department);
+    List<Resource>     findByRole(Resource.ResourceRole role);
+    List<Resource>     findByAssignedProjectId(Long assignedProjectId);
+    boolean            existsByEmail(String email);
+    Resource           save(Resource resource);
+    void               deleteById(Long id);
+    /** NUEVO: busca recurso por el userId de ms-auth para correlación Kafka. */
+    Optional<Resource> findByUserId(Long userId);
 }
 </file>
 
@@ -9700,14 +9487,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface JpaResourceRepository extends JpaRepository<Resource, Long>, IResourceRepository {
-    @Override List<Resource> findByAvailable(boolean available);
-    @Override List<Resource> findByDepartment(String department);
-    @Override List<Resource> findByRole(Resource.ResourceRole role);
-    @Override List<Resource> findByAssignedProjectId(Long assignedProjectId); // FIX Bug 3
-    @Override boolean existsByEmail(String email);
+    @Override List<Resource>     findByAvailable(boolean available);
+    @Override List<Resource>     findByDepartment(String department);
+    @Override List<Resource>     findByRole(Resource.ResourceRole role);
+    @Override List<Resource>     findByAssignedProjectId(Long assignedProjectId);
+    @Override boolean            existsByEmail(String email);
+    @Override Optional<Resource> findByUserId(Long userId); // NUEVO
 }
 </file>
 
@@ -9732,14 +9521,16 @@ public class ResourceService {
 
     // ... métodos existentes sin cambios ...
 
-    @Transactional
+        @Transactional
     public ResourceResponse createResource(CreateResourceRequest req) {
         if (resourceRepository.existsByEmail(req.getEmail()))
             throw new IllegalArgumentException("Ya existe un recurso con el email: " + req.getEmail());
         Resource.ResourceRole role = req.getRole() != null ? req.getRole() : Resource.ResourceRole.DEVELOPER;
         Resource resource = Resource.builder()
                 .name(req.getName()).email(req.getEmail()).department(req.getDepartment())
-                .role(role).skills(req.getSkills()).available(true).build();
+                .role(role).skills(req.getSkills()).available(true)
+                .userId(req.getUserId())  // NUEVO: vincula con ms-auth
+                .build();
         return toResponse(resourceRepository.save(resource));
     }
 
@@ -9756,6 +9547,31 @@ public class ResourceService {
     }
 
     public ResourceResponse getById(Long id) { return toResponse(findOrThrow(id)); }
+
+
+    @Transactional
+    public void assignToProjectByUserId(Long userId, Long projectId, String projectName) {
+        resourceRepository.findByUserId(userId).ifPresentOrElse(r -> {
+            r.setAvailable(false);
+            r.setAssignedProjectId(projectId);
+            r.setAssignedProjectName(projectName);
+            resourceRepository.save(r);
+            log.info("✅ [Kafka] Recurso id={} (userId={}) → no disponible. Proyecto id={}",
+                    r.getId(), userId, projectId);
+        }, () -> log.warn("⚠️  [Kafka] No se encontró Resource con userId={}. " +
+                "Asegúrate de que el recurso fue creado con userId vinculado.", userId));
+    }
+
+    @Transactional
+    public void releaseByUserId(Long userId) {
+        resourceRepository.findByUserId(userId).ifPresent(r -> {
+            r.setAvailable(true);
+            r.setAssignedProjectId(null);
+            r.setAssignedProjectName(null);
+            resourceRepository.save(r);
+            log.info("✅ [Kafka] Recurso id={} (userId={}) → disponible.", r.getId(), userId);
+        });
+    }
 
     @Transactional
     public ResourceResponse updateAvailability(Long id, UpdateAvailabilityRequest req) {
@@ -9992,254 +9808,303 @@ spring.jpa.hibernate.ddl-auto=create-drop
 spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
 </file>
 
-<file path="docker-compose.yml">
+<file path="innovatech-bff-valdes-munoz/src/index.js">
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+
+const authRoutes      = require('./routes/authRoutes');
+const projectRoutes   = require('./routes/projectRoutes');
+const resourceRoutes  = require('./routes/resourceRoutes');
+const analiticaRoutes = require('./routes/analiticaRoutes');
+const notifRoutes     = require('./routes/notifRoutes');
+const errorHandler    = require('./middleware/errorHandler');
+const { httpClient }  = require('./services/httpClient');
+
+const app  = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(helmet());
+
+// FIX: origin '*' con credentials:true viola la especificación CORS;
+// el navegador rechaza la respuesta cuando ambos están activos simultáneamente.
+// Solución: origin explícito + lista extensible vía variable de entorno.
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',');
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permite peticiones sin origin (Postman, curl, proxies server-side)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origen no permitido → ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.use(express.json());
+app.use(morgan('combined'));
+app.use(rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 1000,
+  message: { error: 'Demasiadas solicitudes. Intente más tarde.' },
+}));
+
+app.use('/api/auth',              authRoutes);
+app.use('/api/projects',          projectRoutes);
+app.use('/api/resources',         resourceRoutes);
+app.use('/api/v1/analitica',      analiticaRoutes);
+app.use('/api/v1/notificaciones', notifRoutes);
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'UP',
+    service: 'innovatech-bff',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    circuitBreakers: httpClient.getBreakersStatus(),
+  });
+});
+
+app.use(errorHandler);
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`✅ BFF Innovatech corriendo en http://localhost:${PORT}`);
+    console.log(`   ms-auth      → ${process.env.MS_AUTH_URL}`);
+    console.log(`   ms-proyectos → ${process.env.MS_PROYECTOS_URL}`);
+    console.log(`   ms-recursos  → ${process.env.MS_RECURSOS_URL}`);
+  });
+}
+
+module.exports = app;
+</file>
+
+<file path="innovatech-bff-valdes-munoz/src/services/httpClient.js">
+const axios = require('axios');
+const { CircuitBreaker } = require('./CircuitBreaker');
+
+// ROOT CAUSE BUG 1: docker-compose pasa sólo el host:puerto (ej. http://ms-auth:8081).
+// El path de la API (/api/auth, /api/projects…) debe concatenarse aquí,
+// no asumirse dentro de la variable de entorno.
+const strip = (url) => (url || '').replace(/\/+$/, '');
+
+const MS_AUTH_BASE      = strip(process.env.MS_AUTH_URL)      || 'http://localhost:8081';
+const MS_PROYECTOS_BASE = strip(process.env.MS_PROYECTOS_URL) || 'http://localhost:8082';
+const MS_RECURSOS_BASE  = strip(process.env.MS_RECURSOS_URL)  || 'http://localhost:8083';
+const MS_ANALITICA_BASE = strip(process.env.MS_ANALITICA_URL) || 'http://localhost:8084';
+const MS_NOTIF_BASE     = strip(process.env.MS_NOTIF_URL)     || 'http://localhost:8085';
+
+const CB_THRESHOLD = parseInt(process.env.CIRCUIT_BREAKER_THRESHOLD || '5', 10);
+const CB_TIMEOUT   = parseInt(process.env.CIRCUIT_BREAKER_TIMEOUT   || '30000', 10);
+
+const authBreaker      = new CircuitBreaker({ name: 'ms-auth',      failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
+const proyectosBreaker = new CircuitBreaker({ name: 'ms-proyectos', failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
+const recursosBreaker  = new CircuitBreaker({ name: 'ms-recursos',  failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
+const analiticaBreaker = new CircuitBreaker({ name: 'ms-analitica', failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
+const notifBreaker     = new CircuitBreaker({ name: 'ms-notif',     failureThreshold: CB_THRESHOLD, timeout: CB_TIMEOUT });
+
+// Los paths de API coinciden con @RequestMapping de cada controlador Spring Boot
+const authClient      = axios.create({ baseURL: `${MS_AUTH_BASE}/api/auth`,               timeout: 5000 });
+const proyectosClient = axios.create({ baseURL: `${MS_PROYECTOS_BASE}/api/projects`,      timeout: 5000 });
+const recursosClient  = axios.create({ baseURL: `${MS_RECURSOS_BASE}/api/resources`,      timeout: 5000 });
+const analiticaClient = axios.create({ baseURL: `${MS_ANALITICA_BASE}/api/v1/analitica`,  timeout: 5000 });
+const notifClient     = axios.create({ baseURL: `${MS_NOTIF_BASE}/api/v1/notificaciones`, timeout: 5000 });
+
+const httpClient = {
+  auth: {
+    register:    (data)               => authBreaker.execute(() => authClient.post('/register', data).then(r => r.data)),
+    login:       (data)               => authBreaker.execute(() => authClient.post('/login', data).then(r => r.data)),
+    validate:    (token)              => authBreaker.execute(() => authClient.post('/validate', { token }).then(r => r.data), () => ({ valid: false })),
+    getUsers:    (headers)            => authBreaker.execute(() => authClient.get('/users', { headers }).then(r => r.data)),
+    getUserById: (id, headers)        => authBreaker.execute(() => authClient.get(`/users/${id}`, { headers }).then(r => r.data)),
+    getEmployees:(headers)            => authBreaker.execute(() => authClient.get('/users', { headers }).then(r =>
+      r.data.filter(u => u.role === 'EMPLOYEE')
+    )),
+  },
+
+  projects: {
+    create:           (data, headers)             => proyectosBreaker.execute(() => proyectosClient.post('', data, { headers }).then(r => r.data)),
+    getAll:           (params, headers)           => proyectosBreaker.execute(() => proyectosClient.get('', { params, headers }).then(r => r.data), () => []),
+    getById:          (id, headers)               => proyectosBreaker.execute(() => proyectosClient.get(`/${id}`, { headers }).then(r => r.data)),
+    update:           (id, data, headers)         => proyectosBreaker.execute(() => proyectosClient.put(`/${id}`, data, { headers }).then(r => r.data)),
+    updateStatus:     (id, data, headers)         => proyectosBreaker.execute(() => proyectosClient.patch(`/${id}/status`, data, { headers }).then(r => r.data)),
+    delete:           (id, headers)               => proyectosBreaker.execute(() => proyectosClient.delete(`/${id}`, { headers }).then(r => r.data)),
+    assignEmployee:   (id, data, headers)         => proyectosBreaker.execute(() => proyectosClient.patch(`/${id}/assign`, data, { headers }).then(r => r.data)),
+    unassignEmployee: (id, headers)               => proyectosBreaker.execute(() => proyectosClient.delete(`/${id}/assign`, { headers }).then(r => r.data)),
+    getNotes:         (id, headers)               => proyectosBreaker.execute(() => proyectosClient.get(`/${id}/notes`, { headers }).then(r => r.data), () => []),
+    addNote:          (id, data, headers)         => proyectosBreaker.execute(() => proyectosClient.post(`/${id}/notes`, data, { headers }).then(r => r.data)),
+    reviewNote:       (id, noteId, data, headers) => proyectosBreaker.execute(() => proyectosClient.patch(`/${id}/notes/${noteId}/review`, data, { headers }).then(r => r.data)),
+  },
+
+  resources: {
+    create:             (data, headers)     => recursosBreaker.execute(() => recursosClient.post('', data, { headers }).then(r => r.data)),
+    getAll:             (headers)           => recursosBreaker.execute(() => recursosClient.get('', { headers }).then(r => r.data), () => []),
+    getAvailable:       (headers)           => recursosBreaker.execute(() => recursosClient.get('/available', { headers }).then(r => r.data), () => []),
+    getById:            (id, headers)       => recursosBreaker.execute(() => recursosClient.get(`/${id}`, { headers }).then(r => r.data)),
+    getByDepartment:    (dept, headers)     => recursosBreaker.execute(() => recursosClient.get(`/department/${dept}`, { headers }).then(r => r.data)),
+    updateAvailability: (id, data, headers) => recursosBreaker.execute(() => recursosClient.patch(`/${id}/availability`, data, { headers }).then(r => r.data)),
+    assignToProject:    (id, data, headers) => recursosBreaker.execute(() => recursosClient.patch(`/${id}/assign`, data, { headers }).then(r => r.data)),
+    delete:             (id, headers)       => recursosBreaker.execute(() => recursosClient.delete(`/${id}`, { headers }).then(r => r.data)),
+  },
+
+  analitica: {
+    getAllMetrics:      (headers)            => analiticaBreaker.execute(() => analiticaClient.get('/metricas', { headers }).then(r => r.data), () => []),
+    getProjectMetrics: (projectId, headers) => analiticaBreaker.execute(() => analiticaClient.get(`/metricas/proyecto/${projectId}`, { headers }).then(r => r.data)),
+    getSummary:        (headers)            => analiticaBreaker.execute(() => analiticaClient.get('/resumen', { headers }).then(r => r.data), () => null),
+  },
+
+  notificaciones: {
+    getByProject: (projectId, headers) => notifBreaker.execute(() => notifClient.get(`/proyecto/${projectId}`, { headers }).then(r => r.data), () => []),
+    getUnread:    (projectId, headers) => notifBreaker.execute(() => notifClient.get(`/proyecto/${projectId}/no-leidas`, { headers }).then(r => r.data), () => []),
+    markAsRead:   (id, headers)        => notifBreaker.execute(() => notifClient.patch(`/${id}/read`, {}, { headers }).then(r => r.data)),
+  },
+
+  getBreakersStatus: () => ({
+    auth:      authBreaker.getStatus(),
+    proyectos: proyectosBreaker.getStatus(),
+    recursos:  recursosBreaker.getStatus(),
+    analitica: analiticaBreaker.getStatus(),
+    notif:     notifBreaker.getStatus(),
+  }),
+};
+
+module.exports = { httpClient, authBreaker, proyectosBreaker, recursosBreaker, analiticaBreaker, notifBreaker };
+</file>
+
+<file path="kong-gateway/kong.yml">
+_format_version: "3.0"
+_transform: true
+
 services:
-  postgres:
-    image: postgres:15
-    container_name: innovatech-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-      - ./scripts/init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks: [innovatech-net]
+  - name: ms-auth-service
+    url: http://host.docker.internal:8081
+    connect_timeout: 5000
+    read_timeout: 8000
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.0
-    container_name: innovatech-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-    networks: [innovatech-net]
+  - name: ms-proyectos-service
+    url: http://host.docker.internal:8082
+    connect_timeout: 5000
+    read_timeout: 8000
 
-  kafka:
-    image: confluentinc/cp-kafka:7.6.0
-    container_name: innovatech-kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-    networks: [innovatech-net]
+  - name: ms-recursos-service
+    url: http://host.docker.internal:8083
+    connect_timeout: 5000
+    read_timeout: 8000
 
-  kong:
-    image: kong:3.6-ubuntu
-    container_name: innovatech-kong
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
-      KONG_PROXY_ACCESS_LOG: /dev/stdout
-      KONG_ADMIN_ACCESS_LOG: /dev/stdout
-      KONG_PROXY_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
-      KONG_PROXY_LISTEN: "0.0.0.0:8000"
-    volumes:
-      - ./kong-gateway/kong.yml:/kong/declarative/kong.yml
-    ports:
-      - "8000:8000"
-      - "8001:8001"
-    healthcheck:
-      test: ["CMD", "kong", "health"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-    networks: [innovatech-net]
+  - name: ms-analitica-service
+    url: http://host.docker.internal:8084
+    connect_timeout: 5000
+    read_timeout: 10000
 
-  sonarqube-db:
-    image: postgres:15
-    container_name: innovatech-sonarqube-db
-    environment:
-      POSTGRES_USER: sonar
-      POSTGRES_PASSWORD: sonar
-      POSTGRES_DB: sonar
-    volumes:
-      - sonarqube_db_data:/var/lib/postgresql/data
-    restart: unless-stopped
-    networks: [innovatech-net]
+  - name: ms-notif-service
+    url: http://host.docker.internal:8085
+    connect_timeout: 5000
+    read_timeout: 8000
 
-  sonarqube:
-    image: sonarqube:10.6-community
-    container_name: innovatech-sonarqube
-    depends_on:
-      - sonarqube-db
-    environment:
-      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
-      SONAR_JDBC_USERNAME: sonar
-      SONAR_JDBC_PASSWORD: sonar
-    ports:
-      - "9000:9000"
-    volumes:
-      - sonarqube_data:/opt/sonarqube/data
-      - sonarqube_extensions:/opt/sonarqube/extensions
-      - sonarqube_logs:/opt/sonarqube/logs
-    restart: unless-stopped
-    ulimits:
-      nofile:
-        soft: 65536
-        hard: 65536
-    networks: [innovatech-net]
+routes:
+  - name: auth-login
+    service: ms-auth-service
+    paths: ["/api/auth/login"]
+    methods: ["POST"]
+    strip_path: false
 
-  ms-auth:
-    build:
-      context: ./ms-auth
-      dockerfile: Dockerfile
-    container_name: innovatech-ms-auth
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "8081:8081"
-    environment:
-      DB_HOST: postgres
-      DB_NAME: auth_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
-    restart: unless-stopped
-    networks: [innovatech-net]
+  - name: auth-register
+    service: ms-auth-service
+    paths: ["/api/auth/register"]
+    methods: ["POST"]
+    strip_path: false
 
-  ms-proyectos:
-    build:
-      context: ./ms-proyectos
-      dockerfile: Dockerfile
-    container_name: innovatech-ms-proyectos
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    ports:
-      - "8082:8082"
-    environment:
-      DB_HOST: postgres
-      DB_NAME: proyectos_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      KAFKA_SERVER: kafka:9092
-      JWT_SECRET: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
-    restart: unless-stopped
-    networks: [innovatech-net]
+  - name: auth-protected
+    service: ms-auth-service
+    paths: ["/api/auth"]
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    strip_path: false
 
-  ms-recursos:
-    build:
-      context: ./ms-recursos
-      dockerfile: Dockerfile
-    container_name: innovatech-ms-recursos
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    ports:
-      - "8083:8083"
-    environment:
-      DB_HOST: postgres
-      DB_NAME: recursos_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      KAFKA_SERVER: kafka:9092
-    restart: unless-stopped
-    networks: [innovatech-net]
+  - name: proyectos-all
+    service: ms-proyectos-service
+    paths: ["/api/projects"]
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    strip_path: false
 
-  ms-analitica:
-    build:
-      context: ./ms-analitica
-      dockerfile: Dockerfile
-    container_name: innovatech-ms-analitica
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    ports:
-      - "8084:8084"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: analitica_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      KAFKA_SERVER: kafka:9092
-    restart: unless-stopped
-    networks: [innovatech-net]
+  - name: recursos-all
+    service: ms-recursos-service
+    paths: ["/api/resources"]
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    strip_path: false
 
-  ms-notif:
-    build:
-      context: ./ms-notif
-      dockerfile: Dockerfile
-    container_name: innovatech-ms-notif
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    ports:
-      - "8085:8085"
-    environment:
-      DB_HOST: postgres
-      DB_NAME: notif_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      KAFKA_SERVER: kafka:9092
-    restart: unless-stopped
-    networks: [innovatech-net]
+  - name: analitica-all
+    service: ms-analitica-service
+    paths: ["/api/v1/analitica"]
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    strip_path: false
 
-  bff:
-    build:
-      context: ./innovatech-bff-valdes-munoz
-      dockerfile: Dockerfile
-    container_name: innovatech-bff
-    depends_on:
-      - ms-auth
-      - ms-proyectos
-      - ms-recursos
-      - ms-analitica
-      - ms-notif
-    ports:
-      - "3000:3000"
-    environment:
-      NODE_ENV: production
-      MS_AUTH_URL: http://ms-auth:8081
-      MS_PROYECTOS_URL: http://ms-proyectos:8082
-      MS_RECURSOS_URL: http://ms-recursos:8083
-      MS_ANALITICA_URL: http://ms-analitica:8084
-      MS_NOTIF_URL: http://ms-notif:8085
-    restart: unless-stopped
-    networks: [innovatech-net]
+  - name: notif-all
+    service: ms-notif-service
+    paths: ["/api/v1/notificaciones"]
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    strip_path: false
 
-networks:
-  innovatech-net:
-    driver: bridge
+plugins:
+  - name: rate-limiting
+    config:
+      minute: 1000
+      policy: local
+      error_message: "Demasiadas solicitudes. Intente más tarde."
 
-volumes:
-  pg_data:
-  sonarqube_db_data:
-  sonarqube_data:
-  sonarqube_extensions:
-  sonarqube_logs:
+  - name: rate-limiting
+    route: auth-login
+    config:
+      minute: 100
+      policy: local
+      error_message: "Demasiados intentos de login. Espera 1 minuto."
+
+  - name: jwt
+    route: auth-protected
+    config:
+      secret_is_base64: false
+      claims_to_verify: ["exp"]
+
+  - name: jwt
+    route: proyectos-all
+    config:
+      secret_is_base64: false
+      claims_to_verify: ["exp"]
+
+  - name: jwt
+    route: recursos-all
+    config:
+      secret_is_base64: false
+      claims_to_verify: ["exp"]
+
+  - name: jwt
+    route: analitica-all
+    config:
+      secret_is_base64: false
+      claims_to_verify: ["exp"]
+
+  - name: jwt
+    route: notif-all
+    config:
+      secret_is_base64: false
+      claims_to_verify: ["exp"]
+
+  - name: cors
+    config:
+      origins: ["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"]
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+      headers: ["Authorization", "Content-Type", "Accept"]
+      exposed_headers: ["Authorization"]
+      credentials: true
+      max_age: 3600
+
+consumers:
+  - username: innovatech-app
+    jwt_secrets:
+      - secret: "5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437"
+        algorithm: HS256
 </file>
 
 <file path="ms-analitica/pom.xml">
@@ -10429,6 +10294,12 @@ public class AnaliticaService {
 
     @Transactional
     public void processProjectEvent(ProjectEventDto event) {
+        // Ignorar eventos de recursos: no afectan métricas de proyecto
+        if (event.getEventType() != null &&
+            (event.getEventType().startsWith("RESOURCE_"))) {
+            return;
+        }
+
         ProjectMetric metric = metricRepository.findByProjectId(event.getProjectId())
                 .orElse(ProjectMetric.builder()
                         .projectId(event.getProjectId())
@@ -10436,12 +10307,31 @@ public class AnaliticaService {
                         .activeTasks(0)
                         .build());
 
+        if (event.getProjectName() != null) {
+            metric.setProjectName(event.getProjectName());
+        }
+
         if (event.getStatus() != null) {
             metric.setProjectStatus(event.getStatus());
+            metric.setCompletionPercentage(computeCompletionPercentage(event.getStatus()));
+            // Ajusta tareas activas según el ciclo de vida
+            switch (event.getStatus().toUpperCase()) {
+                case "IN_PROGRESS" -> metric.setActiveTasks(
+                        Math.max(1, metric.getActiveTasks() + 1));
+                case "ON_HOLD"     -> { /* mantiene activeTasks actuales */ }
+                case "COMPLETED", "CANCELLED" -> metric.setActiveTasks(0);
+                case "PLANNING"    -> metric.setActiveTasks(
+                        metric.getActiveTasks() == 0 ? 0 : metric.getActiveTasks());
+                default -> {}
+            }
         }
-        metric.setLastUpdated(LocalDateTime.now());
 
+        metric.setLastUpdated(LocalDateTime.now());
         metricRepository.save(metric);
+
+        log.info("📊 [Kafka] Métrica actualizada — proyecto='{}' status='{}' completion={}%",
+                metric.getProjectName(), metric.getProjectStatus(),
+                metric.getCompletionPercentage());
     }
 
     public List<KpiResponse> getGeneralMetrics() {
@@ -10490,6 +10380,17 @@ public class AnaliticaService {
                 .activeTasks(m.getActiveTasks())
                 .lastUpdated(m.getLastUpdated())
                 .build();
+    }
+
+    private double computeCompletionPercentage(String status) {
+        return switch (status.toUpperCase()) {
+            case "PLANNING"    -> 10.0;
+            case "IN_PROGRESS" -> 50.0;
+            case "ON_HOLD"     -> 35.0;
+            case "COMPLETED"   -> 100.0;
+            case "CANCELLED"   -> 0.0;
+            default            -> 0.0;
+        };
     }
 }
 </file>
@@ -12178,6 +12079,258 @@ public class GlobalExceptionHandler {
 }
 </file>
 
+<file path="docker-compose.yml">
+services:
+  postgres:
+    image: postgres:15
+    container_name: innovatech-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./scripts/init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [innovatech-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: innovatech-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks: [innovatech-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: innovatech-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks: [innovatech-net]
+
+  kong:
+    image: kong:3.6-ubuntu
+    container_name: innovatech-kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+    volumes:
+      - ./kong-gateway/kong.yml:/kong/declarative/kong.yml
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks: [innovatech-net]
+
+  sonarqube-db:
+    image: postgres:15
+    container_name: innovatech-sonarqube-db
+    profiles: ["analisis"]
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - sonarqube_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks: [innovatech-net]
+
+  sonarqube:
+    image: sonarqube:10.6-community
+    container_name: innovatech-sonarqube
+    profiles: ["analisis"]
+    depends_on:
+      - sonarqube-db
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    networks: [innovatech-net]
+
+  ms-auth:
+    build:
+      context: ./ms-auth
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: auth_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
+    restart: unless-stopped
+    networks: [innovatech-net]
+
+  ms-proyectos:
+    build:
+      context: ./ms-proyectos
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-proyectos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: proyectos_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_SERVER: kafka:9092
+      JWT_SECRET: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
+    restart: unless-stopped
+    networks: [innovatech-net]
+
+  ms-recursos:
+    build:
+      context: ./ms-recursos
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-recursos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: recursos_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_SERVER: kafka:9092
+    restart: unless-stopped
+    networks: [innovatech-net]
+
+  ms-analitica:
+    build:
+      context: ./ms-analitica
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-analitica
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: analitica_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_SERVER: kafka:9092
+    restart: unless-stopped
+    networks: [innovatech-net]
+
+  ms-notif:
+    build:
+      context: ./ms-notif
+      dockerfile: Dockerfile
+    container_name: innovatech-ms-notif
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: notif_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_SERVER: kafka:9092
+    restart: unless-stopped
+    networks: [innovatech-net]
+
+  bff:
+    build:
+      context: ./innovatech-bff-valdes-munoz
+      dockerfile: Dockerfile
+    container_name: innovatech-bff
+    depends_on:
+      - ms-auth
+      - ms-proyectos
+      - ms-recursos
+      - ms-analitica
+      - ms-notif
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      MS_AUTH_URL: http://ms-auth:8081
+      MS_PROYECTOS_URL: http://ms-proyectos:8082
+      MS_RECURSOS_URL: http://ms-recursos:8083
+      MS_ANALITICA_URL: http://ms-analitica:8084
+      MS_NOTIF_URL: http://ms-notif:8085
+    restart: unless-stopped
+    networks: [innovatech-net]
+
+networks:
+  innovatech-net:
+    driver: bridge
+
+volumes:
+  pg_data:
+  sonarqube_db_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+</file>
+
 <file path="ms-auth/src/main/resources/application.properties">
 spring.application.name=ms-auth
 # PUERTO CORRECTO PARA AUTH
@@ -12236,9 +12389,9 @@ public class NotificationService {
 
     @Transactional
     public void processProjectEvent(ProjectEventDto event) {
-        String msg = String.format("Proyecto '%s' (ID %d) ha registrado un evento: %s. Estado: %s",
-                event.getProjectName(), event.getProjectId(), event.getType(), event.getStatus());
+        String msg = buildMessage(event);
         createNotification(event.getProjectId(), "PROJECT", msg);
+        log.info("🔔 [Kafka] Notificación creada — proyecto id={}: {}", event.getProjectId(), msg);
     }
 
     public List<Notification> getNotificationsForProject(Long projectId) {
@@ -12255,6 +12408,47 @@ public class NotificationService {
                 .orElseThrow(() -> new IllegalArgumentException("Notificación no encontrada con id: " + notificationId));
         notification.setRead(true);
         notificationRepository.save(notification);
+    }
+
+    private String buildMessage(ProjectEventDto event) {
+        String name      = event.getProjectName() != null
+                           ? event.getProjectName()
+                           : "Proyecto ID " + event.getProjectId();
+        String eventType = event.getEventType() != null ? event.getEventType().toUpperCase() : "";
+        String status    = event.getStatus() != null ? event.getStatus() : "";
+
+        return switch (eventType) {
+            case "PROJECT_CREATED" ->
+                String.format("✅ Nuevo proyecto creado: \"%s\" — Estado inicial: %s.", name, status);
+            case "STATUS_CHANGED"  ->
+                buildStatusMessage(name, status);
+            case "RESOURCE_ASSIGNED" -> {
+                String emp = event.getAssignedEmployeeName() != null
+                             ? event.getAssignedEmployeeName()
+                             : "ID " + event.getAssignedEmployeeId();
+                yield String.format("👤 %s fue asignado/a al proyecto \"%s\".", emp, name);
+            }
+            case "RESOURCE_UNASSIGNED" -> {
+                String emp = event.getAssignedEmployeeName() != null
+                             ? event.getAssignedEmployeeName()
+                             : "ID " + event.getAssignedEmployeeId();
+                yield String.format("🚪 %s fue removido/a del proyecto \"%s\".", emp, name);
+            }
+            default ->
+                // Fallback por compatibilidad con mensajes sin eventType
+                buildStatusMessage(name, status);
+        };
+    }
+
+    private String buildStatusMessage(String projectName, String status) {
+        return switch (status.toUpperCase()) {
+            case "IN_PROGRESS" -> String.format("🚀 El proyecto \"%s\" pasó a estado En Progreso.", projectName);
+            case "ON_HOLD"     -> String.format("⏸️  El proyecto \"%s\" fue puesto en pausa.", projectName);
+            case "COMPLETED"   -> String.format("🎉 El proyecto \"%s\" fue completado exitosamente.", projectName);
+            case "CANCELLED"   -> String.format("❌ El proyecto \"%s\" fue cancelado.", projectName);
+            case "PLANNING"    -> String.format("📋 El proyecto \"%s\" volvió a estado de Planificación.", projectName);
+            default            -> String.format("ℹ️  Proyecto \"%s\" — nuevo estado: %s.", projectName, status);
+        };
     }
 }
 </file>
@@ -12405,6 +12599,8 @@ spring.kafka.consumer.auto-offset-reset=earliest
 spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
 spring.kafka.consumer.value-deserializer=org.springframework.kafka.support.serializer.JsonDeserializer
 spring.kafka.consumer.properties.spring.json.trusted.packages=com.innovatech.proyectos.messaging,com.innovatech.recursos.messaging
+spring.kafka.consumer.properties.spring.json.use.type.headers=false
+spring.kafka.consumer.properties.spring.json.value.default.type=com.innovatech.recursos.messaging.ProjectEventMessage
 spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
 spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer
 

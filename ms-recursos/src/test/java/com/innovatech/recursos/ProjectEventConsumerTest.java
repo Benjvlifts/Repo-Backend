@@ -34,7 +34,7 @@ class ProjectEventConsumerTest {
         ProjectEventMessage event = buildEvent(1L, "Portal Fintech", "COMPLETED");
         when(resourceService.releaseByProject(1L)).thenReturn(3);
 
-        consumer.consumeProjectCreated(event);
+        consumer.consumeProjectEvent(event);  // ← consumeProjectCreated → consumeProjectEvent
 
         verify(resourceService, times(1)).releaseByProject(1L);
     }
@@ -44,7 +44,7 @@ class ProjectEventConsumerTest {
     void consumeProjectCreated_inProgressStatus_doesNotRelease() {
         ProjectEventMessage event = buildEvent(2L, "App Móvil", "IN_PROGRESS");
 
-        consumer.consumeProjectCreated(event);
+        consumer.consumeProjectEvent(event);  // ← consumeProjectCreated → consumeProjectEvent
 
         verifyNoInteractions(resourceService);
     }
@@ -54,7 +54,7 @@ class ProjectEventConsumerTest {
     void consumeProjectCreated_planningStatus_doesNotRelease() {
         ProjectEventMessage event = buildEvent(3L, "Infraestructura", "PLANNING");
 
-        consumer.consumeProjectCreated(event);
+        consumer.consumeProjectEvent(event);  // ← consumeProjectCreated → consumeProjectEvent
 
         verifyNoInteractions(resourceService);
     }
@@ -65,7 +65,7 @@ class ProjectEventConsumerTest {
         ProjectEventMessage event = buildEvent(4L, "ERP System", "completed");
         when(resourceService.releaseByProject(4L)).thenReturn(1);
 
-        consumer.consumeProjectCreated(event);
+        consumer.consumeProjectEvent(event);  // ← consumeProjectCreated → consumeProjectEvent
 
         verify(resourceService).releaseByProject(4L);
     }

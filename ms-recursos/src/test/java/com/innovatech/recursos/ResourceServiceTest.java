@@ -46,7 +46,8 @@ class ResourceServiceTest {
         @Test
         @DisplayName("✅ Crea recurso y retorna response")
         void createResource_savesAndReturnsResponse() {
-            CreateResourceRequest req = new CreateResourceRequest("Ana López", "ana@test.cl", "IT", Resource.ResourceRole.DEVELOPER, "Java");
+            CreateResourceRequest req = new CreateResourceRequest(
+                    "Ana López", "ana@test.cl", "IT", Resource.ResourceRole.DEVELOPER, "Java", null);
             when(resourceRepository.existsByEmail("ana@test.cl")).thenReturn(false);
             when(resourceRepository.save(any(Resource.class))).thenReturn(sampleResource);
 
@@ -60,7 +61,8 @@ class ResourceServiceTest {
         @Test
         @DisplayName("✅ Asigna rol DEVELOPER si no se especifica")
         void createResource_noRole_assignsDeveloper() {
-            CreateResourceRequest req = new CreateResourceRequest("Test", "test@test.cl", "IT", null, null);
+            CreateResourceRequest req = new CreateResourceRequest(
+                    "Test", "test@test.cl", "IT", null, null, null);
             when(resourceRepository.existsByEmail(anyString())).thenReturn(false);
             when(resourceRepository.save(any())).thenReturn(sampleResource);
             resourceService.createResource(req);
@@ -70,7 +72,8 @@ class ResourceServiceTest {
         @Test
         @DisplayName("❌ Lanza excepción si email ya existe")
         void createResource_duplicateEmail_throwsException() {
-            CreateResourceRequest req = new CreateResourceRequest("Test", "ana@test.cl", "IT", null, null);
+            CreateResourceRequest req = new CreateResourceRequest(
+                    "Test", "ana@test.cl", "IT", null, null, null);
             when(resourceRepository.existsByEmail("ana@test.cl")).thenReturn(true);
             assertThatThrownBy(() -> resourceService.createResource(req))
                     .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("email");

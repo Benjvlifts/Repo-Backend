@@ -6,14 +6,17 @@ import com.innovatech.analitica.dto.ProjectEventDto;
 import com.innovatech.analitica.model.ProjectMetric;
 import com.innovatech.analitica.repository.ProjectMetricRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
-
+import lombok.extern.slf4j.Slf4j;
 @Service
+@Slf4j 
 @RequiredArgsConstructor
 public class AnaliticaService {
 
@@ -21,6 +24,12 @@ public class AnaliticaService {
 
     @Transactional
     public void processProjectEvent(ProjectEventDto event) {
+        // Ignorar eventos de recursos: no afectan métricas de proyecto
+        if (event.getEventType() != null &&
+            (event.getEventType().startsWith("RESOURCE_"))) {
+            return;
+        }
+
         ProjectMetric metric = metricRepository.findByProjectId(event.getProjectId())
                 .orElse(ProjectMetric.builder()
                         .projectId(event.getProjectId())
@@ -28,12 +37,31 @@ public class AnaliticaService {
                         .activeTasks(0)
                         .build());
 
+        if (event.getProjectName() != null) {
+            metric.setProjectName(event.getProjectName());
+        }
+
         if (event.getStatus() != null) {
             metric.setProjectStatus(event.getStatus());
+            metric.setCompletionPercentage(computeCompletionPercentage(event.getStatus()));
+            // Ajusta tareas activas según el ciclo de vida
+            switch (event.getStatus().toUpperCase()) {
+                case "IN_PROGRESS" -> metric.setActiveTasks(
+                        Math.max(1, metric.getActiveTasks() + 1));
+                case "ON_HOLD"     -> { /* mantiene activeTasks actuales */ }
+                case "COMPLETED", "CANCELLED" -> metric.setActiveTasks(0);
+                case "PLANNING"    -> metric.setActiveTasks(
+                        metric.getActiveTasks() == 0 ? 0 : metric.getActiveTasks());
+                default -> {}
+            }
         }
-        metric.setLastUpdated(LocalDateTime.now());
 
+        metric.setLastUpdated(LocalDateTime.now());
         metricRepository.save(metric);
+
+        log.info("📊 [Kafka] Métrica actualizada — proyecto='{}' status='{}' completion={}%",
+                metric.getProjectName(), metric.getProjectStatus(),
+                metric.getCompletionPercentage());
     }
 
     public List<KpiResponse> getGeneralMetrics() {
@@ -82,5 +110,16 @@ public class AnaliticaService {
                 .activeTasks(m.getActiveTasks())
                 .lastUpdated(m.getLastUpdated())
                 .build();
+    }
+
+    private double computeCompletionPercentage(String status) {
+        return switch (status.toUpperCase()) {
+            case "PLANNING"    -> 10.0;
+            case "IN_PROGRESS" -> 50.0;
+            case "ON_HOLD"     -> 35.0;
+            case "COMPLETED"   -> 100.0;
+            case "CANCELLED"   -> 0.0;
+            default            -> 0.0;
+        };
     }
 }

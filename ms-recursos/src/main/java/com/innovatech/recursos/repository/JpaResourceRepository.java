@@ -5,12 +5,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface JpaResourceRepository extends JpaRepository<Resource, Long>, IResourceRepository {
-    @Override List<Resource> findByAvailable(boolean available);
-    @Override List<Resource> findByDepartment(String department);
-    @Override List<Resource> findByRole(Resource.ResourceRole role);
-    @Override List<Resource> findByAssignedProjectId(Long assignedProjectId); // FIX Bug 3
-    @Override boolean existsByEmail(String email);
+    @Override List<Resource>     findByAvailable(boolean available);
+    @Override List<Resource>     findByDepartment(String department);
+    @Override List<Resource>     findByRole(Resource.ResourceRole role);
+    @Override List<Resource>     findByAssignedProjectId(Long assignedProjectId);
+    @Override boolean            existsByEmail(String email);
+    @Override Optional<Resource> findByUserId(Long userId); // NUEVO
 }
