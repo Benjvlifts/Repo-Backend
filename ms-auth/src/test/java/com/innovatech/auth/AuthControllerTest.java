@@ -18,7 +18,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import com.innovatech.auth.model.User;
 import com.innovatech.auth.security.JwtService;
-import com.innovatech.auth.service.AuthService;
+import org.springframework.security.test.context.support.WithMockUser;
 
 import java.util.List;
 import java.util.Map;
@@ -191,6 +191,7 @@ class AuthControllerTest {
 
     @Nested
     @DisplayName("GET /api/auth/users")
+    @WithMockUser(roles = "ADMIN")
     class UserEndpointTests {
 
         @Test
