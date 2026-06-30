@@ -76,6 +76,7 @@ services:
   sonarqube-db:
     image: postgres:15
     container_name: innovatech-sonarqube-db
+    profiles: ["analisis"]
     environment:
       POSTGRES_USER: sonar
       POSTGRES_PASSWORD: sonar
@@ -88,6 +89,7 @@ services:
   sonarqube:
     image: sonarqube:10.6-community
     container_name: innovatech-sonarqube
+    profiles: ["analisis"]
     depends_on:
       - sonarqube-db
     environment:

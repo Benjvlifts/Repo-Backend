@@ -17,12 +17,27 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(helmet());
-app.use(cors({ origin: '*', credentials: true }));
+
+// FIX: origin '*' con credentials:true viola la especificación CORS;
+// el navegador rechaza la respuesta cuando ambos están activos simultáneamente.
+// Solución: origin explícito + lista extensible vía variable de entorno.
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',');
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permite peticiones sin origin (Postman, curl, proxies server-side)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origen no permitido → ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(morgan('combined'));
 app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 1 * 60 * 1000,
+  max: 1000,
   message: { error: 'Demasiadas solicitudes. Intente más tarde.' },
 }));
 

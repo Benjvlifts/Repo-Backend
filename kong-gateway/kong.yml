@@ -73,14 +73,14 @@ routes:
 plugins:
   - name: rate-limiting
     config:
-      minute: 100
+      minute: 1000
       policy: local
       error_message: "Demasiadas solicitudes. Intente más tarde."
 
   - name: rate-limiting
     route: auth-login
     config:
-      minute: 10
+      minute: 100
       policy: local
       error_message: "Demasiados intentos de login. Espera 1 minuto."
 
