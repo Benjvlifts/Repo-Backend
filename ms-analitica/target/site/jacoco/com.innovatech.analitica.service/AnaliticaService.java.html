@@ -1,16 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnaliticaService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ms-analitica</a> &gt; <a href="index.source.html" class="el_package">com.innovatech.analitica.service</a> &gt; <span class="el_source">AnaliticaService.java</span></div><h1>AnaliticaService.java</h1><pre class="source lang-java linenums">package com.innovatech.analitica.service;
 
+import com.innovatech.analitica.dto.KpiResponse;
+import com.innovatech.analitica.dto.KpiSummaryResponse;
 import com.innovatech.analitica.dto.ProjectEventDto;
 import com.innovatech.analitica.model.ProjectMetric;
 import com.innovatech.analitica.repository.ProjectMetricRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 @Service
+<span class="fc" id="L19">@Slf4j </span>
 @RequiredArgsConstructor
 public class AnaliticaService {
 
@@ -18,26 +24,103 @@ public class AnaliticaService {
 
     @Transactional
     public void processProjectEvent(ProjectEventDto event) {
-<span class="fc" id="L21">        ProjectMetric metric = metricRepository.findByProjectId(event.getProjectId())</span>
-<span class="fc" id="L22">                .orElse(ProjectMetric.builder()</span>
-<span class="fc" id="L23">                        .projectId(event.getProjectId())</span>
-<span class="fc" id="L24">                        .build());</span>
+        // Ignorar eventos de recursos: no afectan métricas de proyecto
+<span class="pc bpc" id="L28" title="1 of 2 branches missed.">        if (event.getEventType() != null &amp;&amp;</span>
+<span class="nc bnc" id="L29" title="All 2 branches missed.">            (event.getEventType().startsWith(&quot;RESOURCE_&quot;))) {</span>
+<span class="nc" id="L30">            return;</span>
+        }
 
-<span class="fc bfc" id="L26" title="All 2 branches covered.">        metric.setProjectStatus(event.getStatus() != null ? event.getStatus() : metric.getProjectStatus());</span>
-<span class="pc bpc" id="L27" title="1 of 2 branches missed.">        metric.setCompletionPercentage(event.getCompletionPercentage() != null ? event.getCompletionPercentage() : metric.getCompletionPercentage());</span>
-<span class="pc bpc" id="L28" title="1 of 2 branches missed.">        metric.setActiveTasks(event.getActiveTasks() != null ? event.getActiveTasks() : metric.getActiveTasks());</span>
-<span class="fc" id="L29">        metric.setLastUpdated(LocalDateTime.now());</span>
+<span class="fc" id="L33">        ProjectMetric metric = metricRepository.findByProjectId(event.getProjectId())</span>
+<span class="fc" id="L34">                .orElse(ProjectMetric.builder()</span>
+<span class="fc" id="L35">                        .projectId(event.getProjectId())</span>
+<span class="fc" id="L36">                        .completionPercentage(0.0)</span>
+<span class="fc" id="L37">                        .activeTasks(0)</span>
+<span class="fc" id="L38">                        .build());</span>
 
-<span class="fc" id="L31">        metricRepository.save(metric);</span>
-<span class="fc" id="L32">    }</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        if (event.getProjectName() != null) {</span>
+<span class="nc" id="L41">            metric.setProjectName(event.getProjectName());</span>
+        }
 
-    public List&lt;ProjectMetric&gt; getGeneralMetrics() {
-<span class="fc" id="L35">        return metricRepository.findAll();</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (event.getStatus() != null) {</span>
+<span class="fc" id="L45">            metric.setProjectStatus(event.getStatus());</span>
+<span class="fc" id="L46">            metric.setCompletionPercentage(computeCompletionPercentage(event.getStatus()));</span>
+            // Ajusta tareas activas según el ciclo de vida
+<span class="pc bpc" id="L48" title="3 of 5 branches missed.">            switch (event.getStatus().toUpperCase()) {</span>
+<span class="nc" id="L49">                case &quot;IN_PROGRESS&quot; -&gt; metric.setActiveTasks(</span>
+<span class="nc" id="L50">                        Math.max(1, metric.getActiveTasks() + 1));</span>
+<span class="nc" id="L51">                case &quot;ON_HOLD&quot;     -&gt; { /* mantiene activeTasks actuales */ }</span>
+<span class="fc" id="L52">                case &quot;COMPLETED&quot;, &quot;CANCELLED&quot; -&gt; metric.setActiveTasks(0);</span>
+<span class="fc" id="L53">                case &quot;PLANNING&quot;    -&gt; metric.setActiveTasks(</span>
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">                        metric.getActiveTasks() == 0 ? 0 : metric.getActiveTasks());</span>
+                default -&gt; {}
+            }
+        }
+
+<span class="fc" id="L59">        metric.setLastUpdated(LocalDateTime.now());</span>
+<span class="fc" id="L60">        metricRepository.save(metric);</span>
+
+<span class="fc" id="L62">        log.info(&quot;📊 [Kafka] Métrica actualizada — proyecto='{}' status='{}' completion={}%&quot;,</span>
+<span class="fc" id="L63">                metric.getProjectName(), metric.getProjectStatus(),</span>
+<span class="fc" id="L64">                metric.getCompletionPercentage());</span>
+<span class="fc" id="L65">    }</span>
+
+    public List&lt;KpiResponse&gt; getGeneralMetrics() {
+<span class="fc" id="L68">        return metricRepository.findAll().stream()</span>
+<span class="fc" id="L69">                .map(this::toKpiResponse)</span>
+<span class="fc" id="L70">                .collect(Collectors.toList());</span>
     }
 
-    public ProjectMetric getProjectMetrics(Long projectId) {
-<span class="fc" id="L39">        return metricRepository.findByProjectId(projectId)</span>
-<span class="fc" id="L40">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Métricas no encontradas para el proyecto ID: &quot; + projectId));</span>
+    public KpiResponse getProjectMetrics(Long projectId) {
+<span class="fc" id="L74">        return metricRepository.findByProjectId(projectId)</span>
+<span class="fc" id="L75">                .map(this::toKpiResponse)</span>
+<span class="fc" id="L76">                .orElseThrow(() -&gt; new IllegalArgumentException(</span>
+                        &quot;Métricas no encontradas para el proyecto ID: &quot; + projectId));
+    }
+
+    public KpiSummaryResponse getSummary() {
+<span class="fc" id="L81">        List&lt;ProjectMetric&gt; all = metricRepository.findAll();</span>
+
+<span class="fc" id="L83">        double avgCompletion = all.stream()</span>
+<span class="fc" id="L84">                .mapToDouble(ProjectMetric::getCompletionPercentage)</span>
+<span class="fc" id="L85">                .average()</span>
+<span class="fc" id="L86">                .orElse(0.0);</span>
+
+<span class="fc" id="L88">        long active = all.stream()</span>
+<span class="fc" id="L89">                .filter(m -&gt; &quot;IN_PROGRESS&quot;.equals(m.getProjectStatus()))</span>
+<span class="fc" id="L90">                .count();</span>
+
+<span class="fc" id="L92">        long completed = all.stream()</span>
+<span class="fc" id="L93">                .filter(m -&gt; &quot;COMPLETED&quot;.equals(m.getProjectStatus()))</span>
+<span class="fc" id="L94">                .count();</span>
+
+<span class="fc" id="L96">        return KpiSummaryResponse.builder()</span>
+<span class="fc" id="L97">                .totalProjects(all.size())</span>
+<span class="fc" id="L98">                .averageCompletion(Math.round(avgCompletion * 100.0) / 100.0)</span>
+<span class="fc" id="L99">                .activeProjects(active)</span>
+<span class="fc" id="L100">                .completedProjects(completed)</span>
+<span class="fc" id="L101">                .metrics(all.stream().map(this::toKpiResponse).collect(Collectors.toList()))</span>
+<span class="fc" id="L102">                .build();</span>
+    }
+
+    private KpiResponse toKpiResponse(ProjectMetric m) {
+<span class="fc" id="L106">        return KpiResponse.builder()</span>
+<span class="fc" id="L107">                .projectId(m.getProjectId())</span>
+<span class="fc" id="L108">                .projectStatus(m.getProjectStatus())</span>
+<span class="fc" id="L109">                .completionPercentage(m.getCompletionPercentage())</span>
+<span class="fc" id="L110">                .activeTasks(m.getActiveTasks())</span>
+<span class="fc" id="L111">                .lastUpdated(m.getLastUpdated())</span>
+<span class="fc" id="L112">                .build();</span>
+    }
+
+    private double computeCompletionPercentage(String status) {
+<span class="pc bpc" id="L116" title="4 of 6 branches missed.">        return switch (status.toUpperCase()) {</span>
+<span class="fc" id="L117">            case &quot;PLANNING&quot;    -&gt; 10.0;</span>
+<span class="nc" id="L118">            case &quot;IN_PROGRESS&quot; -&gt; 50.0;</span>
+<span class="nc" id="L119">            case &quot;ON_HOLD&quot;     -&gt; 35.0;</span>
+<span class="fc" id="L120">            case &quot;COMPLETED&quot;   -&gt; 100.0;</span>
+<span class="nc" id="L121">            case &quot;CANCELLED&quot;   -&gt; 0.0;</span>
+<span class="nc" id="L122">            default            -&gt; 0.0;</span>
+        };
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

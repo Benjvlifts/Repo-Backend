@@ -4,98 +4,130 @@ import com.innovatech.recursos.dto.ResourceDtos.*;
 import com.innovatech.recursos.model.Resource;
 import com.innovatech.recursos.repository.IResourceRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
-/**
- * Servicio de lógica de negocio para recursos humanos.
- * Patrón Repository: depende de IResourceRepository (interfaz), no de JPA.
- *
- * @author Benjamin Valdes, Ignacio Munoz
- */
+
 @Service
 @RequiredArgsConstructor
+<span class="fc" id="L19">@Slf4j</span>
 public class ResourceService {
 
     private final IResourceRepository resourceRepository;
 
-    @Transactional
+    // ... métodos existentes sin cambios ...
+
+        @Transactional
     public ResourceResponse createResource(CreateResourceRequest req) {
-<span class="nc bnc" id="L27" title="All 2 branches missed.">        if (resourceRepository.existsByEmail(req.getEmail())) {</span>
-<span class="nc" id="L28">            throw new IllegalArgumentException(&quot;Ya existe un recurso con el email: &quot; + req.getEmail());</span>
-        }
-<span class="nc bnc" id="L30" title="All 2 branches missed.">        Resource.ResourceRole role = req.getRole() != null ? req.getRole() : Resource.ResourceRole.DEVELOPER;</span>
-<span class="nc" id="L31">        Resource resource = Resource.builder()</span>
-<span class="nc" id="L32">                .name(req.getName())</span>
-<span class="nc" id="L33">                .email(req.getEmail())</span>
-<span class="nc" id="L34">                .department(req.getDepartment())</span>
-<span class="nc" id="L35">                .role(role)</span>
-<span class="nc" id="L36">                .skills(req.getSkills())</span>
-<span class="nc" id="L37">                .available(true)</span>
-<span class="nc" id="L38">                .build();</span>
-<span class="nc" id="L39">        return toResponse(resourceRepository.save(resource));</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        if (resourceRepository.existsByEmail(req.getEmail()))</span>
+<span class="fc" id="L29">            throw new IllegalArgumentException(&quot;Ya existe un recurso con el email: &quot; + req.getEmail());</span>
+<span class="fc bfc" id="L30" title="All 2 branches covered.">        Resource.ResourceRole role = req.getRole() != null ? req.getRole() : Resource.ResourceRole.DEVELOPER;</span>
+<span class="fc" id="L31">        Resource resource = Resource.builder()</span>
+<span class="fc" id="L32">                .name(req.getName()).email(req.getEmail()).department(req.getDepartment())</span>
+<span class="fc" id="L33">                .role(role).skills(req.getSkills()).available(true)</span>
+<span class="fc" id="L34">                .userId(req.getUserId())  // NUEVO: vincula con ms-auth</span>
+<span class="fc" id="L35">                .build();</span>
+<span class="fc" id="L36">        return toResponse(resourceRepository.save(resource));</span>
     }
 
     public List&lt;ResourceResponse&gt; getAllResources() {
-<span class="nc" id="L43">        return resourceRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());</span>
+<span class="fc" id="L40">        return resourceRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());</span>
     }
 
     public List&lt;ResourceResponse&gt; getAvailableResources() {
-<span class="nc" id="L47">        return resourceRepository.findByAvailable(true).stream().map(this::toResponse).collect(Collectors.toList());</span>
+<span class="fc" id="L44">        return resourceRepository.findByAvailable(true).stream().map(this::toResponse).collect(Collectors.toList());</span>
     }
 
     public List&lt;ResourceResponse&gt; getByDepartment(String department) {
-<span class="nc" id="L51">        return resourceRepository.findByDepartment(department).stream().map(this::toResponse).collect(Collectors.toList());</span>
+<span class="fc" id="L48">        return resourceRepository.findByDepartment(department).stream().map(this::toResponse).collect(Collectors.toList());</span>
     }
 
-    public ResourceResponse getById(Long id) {
-<span class="nc" id="L55">        return toResponse(resourceRepository.findById(id)</span>
-<span class="nc" id="L56">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Recurso no encontrado con id: &quot; + id)));</span>
-    }
+<span class="fc" id="L51">    public ResourceResponse getById(Long id) { return toResponse(findOrThrow(id)); }</span>
+
+
+    @Transactional
+    public void assignToProjectByUserId(Long userId, Long projectId, String projectName) {
+<span class="nc" id="L56">        resourceRepository.findByUserId(userId).ifPresentOrElse(r -&gt; {</span>
+<span class="nc" id="L57">            r.setAvailable(false);</span>
+<span class="nc" id="L58">            r.setAssignedProjectId(projectId);</span>
+<span class="nc" id="L59">            r.setAssignedProjectName(projectName);</span>
+<span class="nc" id="L60">            resourceRepository.save(r);</span>
+<span class="nc" id="L61">            log.info(&quot;✅ [Kafka] Recurso id={} (userId={}) → no disponible. Proyecto id={}&quot;,</span>
+<span class="nc" id="L62">                    r.getId(), userId, projectId);</span>
+<span class="nc" id="L63">        }, () -&gt; log.warn(&quot;⚠️  [Kafka] No se encontró Resource con userId={}. &quot; +</span>
+                &quot;Asegúrate de que el recurso fue creado con userId vinculado.&quot;, userId));
+<span class="nc" id="L65">    }</span>
+
+    @Transactional
+    public void releaseByUserId(Long userId) {
+<span class="nc" id="L69">        resourceRepository.findByUserId(userId).ifPresent(r -&gt; {</span>
+<span class="nc" id="L70">            r.setAvailable(true);</span>
+<span class="nc" id="L71">            r.setAssignedProjectId(null);</span>
+<span class="nc" id="L72">            r.setAssignedProjectName(null);</span>
+<span class="nc" id="L73">            resourceRepository.save(r);</span>
+<span class="nc" id="L74">            log.info(&quot;✅ [Kafka] Recurso id={} (userId={}) → disponible.&quot;, r.getId(), userId);</span>
+<span class="nc" id="L75">        });</span>
+<span class="nc" id="L76">    }</span>
 
     @Transactional
     public ResourceResponse updateAvailability(Long id, UpdateAvailabilityRequest req) {
-<span class="nc" id="L61">        Resource r = resourceRepository.findById(id)</span>
-<span class="nc" id="L62">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Recurso no encontrado con id: &quot; + id));</span>
-<span class="nc" id="L63">        r.setAvailable(req.isAvailable());</span>
-<span class="nc" id="L64">        return toResponse(resourceRepository.save(r));</span>
+<span class="fc" id="L80">        Resource r = findOrThrow(id);</span>
+<span class="fc" id="L81">        r.setAvailable(req.isAvailable());</span>
+<span class="fc" id="L82">        return toResponse(resourceRepository.save(r));</span>
     }
 
     @Transactional
     public ResourceResponse assignToProject(Long resourceId, Long projectId, String projectName) {
-<span class="nc" id="L69">        Resource r = resourceRepository.findById(resourceId)</span>
-<span class="nc" id="L70">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Recurso no encontrado&quot;));</span>
-<span class="nc" id="L71">        r.setAssignedProjectId(projectId);</span>
-<span class="nc" id="L72">        r.setAssignedProjectName(projectName);</span>
-<span class="nc" id="L73">        r.setAvailable(false);</span>
-<span class="nc" id="L74">        return toResponse(resourceRepository.save(r));</span>
+<span class="fc" id="L87">        Resource r = findOrThrow(resourceId);</span>
+<span class="fc" id="L88">        r.setAssignedProjectId(projectId);</span>
+<span class="fc" id="L89">        r.setAssignedProjectName(projectName);</span>
+<span class="fc" id="L90">        r.setAvailable(false);</span>
+<span class="fc" id="L91">        return toResponse(resourceRepository.save(r));</span>
+    }
+
+    /**
+     * FIX Bug 3 + assignToProject: libera TODOS los recursos de un proyecto.
+     * Llamado desde el consumidor Kafka cuando status=COMPLETED,
+     * y desde el endpoint PUT /api/resources/capacity para invocación manual.
+     * @return cantidad de recursos liberados
+     */
+    @Transactional
+    public int releaseByProject(Long projectId) {
+<span class="nc" id="L102">        List&lt;Resource&gt; assigned = resourceRepository.findByAssignedProjectId(projectId);</span>
+<span class="nc" id="L103">        assigned.forEach(r -&gt; {</span>
+<span class="nc" id="L104">            r.setAvailable(true);</span>
+<span class="nc" id="L105">            r.setAssignedProjectId(null);</span>
+<span class="nc" id="L106">            r.setAssignedProjectName(null);</span>
+<span class="nc" id="L107">            resourceRepository.save(r);</span>
+<span class="nc" id="L108">        });</span>
+<span class="nc" id="L109">        return assigned.size();</span>
     }
 
     @Transactional
     public void deleteResource(Long id) {
-<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (!resourceRepository.existsByEmail(&quot;&quot;)) {</span>
-<span class="nc" id="L80">            resourceRepository.findById(id)</span>
-<span class="nc" id="L81">                    .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Recurso no encontrado con id: &quot; + id));</span>
-        }
-<span class="nc" id="L83">        resourceRepository.deleteById(id);</span>
-<span class="nc" id="L84">    }</span>
+<span class="fc" id="L114">        findOrThrow(id);</span>
+<span class="fc" id="L115">        resourceRepository.deleteById(id);</span>
+<span class="fc" id="L116">    }</span>
+
+    private Resource findOrThrow(Long id) {
+<span class="fc" id="L119">        return resourceRepository.findById(id)</span>
+<span class="fc" id="L120">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Recurso no encontrado con id: &quot; + id));</span>
+    }
 
     private ResourceResponse toResponse(Resource r) {
-<span class="nc" id="L87">        return ResourceResponse.builder()</span>
-<span class="nc" id="L88">                .id(r.getId())</span>
-<span class="nc" id="L89">                .name(r.getName())</span>
-<span class="nc" id="L90">                .email(r.getEmail())</span>
-<span class="nc" id="L91">                .department(r.getDepartment())</span>
-<span class="nc" id="L92">                .role(r.getRole().name())</span>
-<span class="nc" id="L93">                .available(r.isAvailable())</span>
-<span class="nc" id="L94">                .skills(r.getSkills())</span>
-<span class="nc" id="L95">                .assignedProjectId(r.getAssignedProjectId())</span>
-<span class="nc" id="L96">                .assignedProjectName(r.getAssignedProjectName())</span>
-<span class="nc" id="L97">                .createdAt(r.getCreatedAt())</span>
-<span class="nc" id="L98">                .build();</span>
+<span class="fc" id="L124">        return ResourceResponse.builder()</span>
+<span class="fc" id="L125">                .id(r.getId()).name(r.getName()).email(r.getEmail())</span>
+<span class="fc" id="L126">                .department(r.getDepartment()).role(r.getRole().name())</span>
+<span class="fc" id="L127">                .available(r.isAvailable()).skills(r.getSkills())</span>
+<span class="fc" id="L128">                .assignedProjectId(r.getAssignedProjectId())</span>
+<span class="fc" id="L129">                .assignedProjectName(r.getAssignedProjectName())</span>
+<span class="fc" id="L130">                .createdAt(r.getCreatedAt()).build();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,1 +1,8 @@
+com\innovatech\notif\ProjectNotificationConsumerTest.class
+com\innovatech\notif\NotificationControllerTest.class
+com\innovatech\notif\NotificationServiceTest$MarkAsReadTests.class
+com\innovatech\notif\MsNotifApplicationTests.class
+com\innovatech\notif\NotificationServiceTest$CreateNotificationTests.class
+com\innovatech\notif\NotificationServiceTest$ProcessEventTests.class
+com\innovatech\notif\NotificationServiceTest$GetNotificationsTests.class
 com\innovatech\notif\NotificationServiceTest.class

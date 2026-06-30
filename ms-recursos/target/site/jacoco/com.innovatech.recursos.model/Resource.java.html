@@ -54,6 +54,13 @@ public class Resource {
     @Column(name = &quot;assigned_project_name&quot;)
     private String assignedProjectName;
 
+    /**
+     * NUEVO: ID del usuario en ms-auth que corresponde a este recurso.
+     * Permite correlacionar eventos Kafka (employeeId) con registros locales.
+     */
+    @Column(name = &quot;user_id&quot;, unique = true)
+    private Long userId;
+
     @Column(name = &quot;created_at&quot;, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -63,11 +70,11 @@ public class Resource {
 
     @PreUpdate
     protected void onUpdate() {
-<span class="nc" id="L66">        this.updatedAt = LocalDateTime.now();</span>
-<span class="nc" id="L67">    }</span>
+<span class="nc" id="L73">        this.updatedAt = LocalDateTime.now();</span>
+<span class="nc" id="L74">    }</span>
 
-<span class="fc" id="L69">    public enum ResourceRole {</span>
-<span class="fc" id="L70">        DEVELOPER, DESIGNER, QA, DEVOPS, MANAGER, CONSULTANT</span>
+<span class="fc" id="L76">    public enum ResourceRole {</span>
+<span class="fc" id="L77">        DEVELOPER, DESIGNER, QA, DEVOPS, MANAGER, CONSULTANT</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

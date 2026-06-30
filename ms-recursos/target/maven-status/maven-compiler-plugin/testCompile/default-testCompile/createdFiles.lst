@@ -1,1 +1,7 @@
+com\innovatech\recursos\ProjectEventConsumerTest.class
+com\innovatech\recursos\ResourceServiceTest$MutationTests.class
+com\innovatech\recursos\ResourceControllerTest.class
+com\innovatech\recursos\ResourceServiceTest$QueryTests.class
+com\innovatech\recursos\ResourceServiceTest$CreateResourceTests.class
 com\innovatech\recursos\MsRecursosApplicationTests.class
+com\innovatech\recursos\ResourceServiceTest.class

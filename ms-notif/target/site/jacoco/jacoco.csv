@@ -1,5 +1,7 @@
 GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
-ms-notif,com.innovatech.notif.service,NotificationService,0,75,0,0,0,18,0,5,0,5
-ms-notif,com.innovatech.notif.kafka,ProjectNotificationConsumer,14,0,0,0,4,0,2,0,2,0
-ms-notif,com.innovatech.notif.controller,NotificationController,13,0,0,0,3,0,2,0,2,0
-ms-notif,com.innovatech.notif,MsNotifApplication,8,0,0,0,3,0,2,0,2,0
+ms-notif,com.innovatech.notif.service,NotificationService,120,130,16,5,16,28,14,9,0,9
+ms-notif,com.innovatech.notif.kafka,ProjectNotificationConsumer,0,14,0,0,0,4,0,2,0,2
+ms-notif,com.innovatech.notif.controller,NotificationController,0,28,0,0,0,5,0,4,0,4
+ms-notif,com.innovatech.notif.config,OpenApiConfig,0,23,0,0,0,8,0,2,0,2
+ms-notif,com.innovatech.notif.config,GlobalExceptionHandler,11,46,0,0,2,9,1,4,1,4
+ms-notif,com.innovatech.notif,MsNotifApplication,5,3,0,0,2,1,1,1,1,1

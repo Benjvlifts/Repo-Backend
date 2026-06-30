@@ -7,17 +7,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-<span class="nc" id="L10">@Slf4j</span>
+<span class="fc" id="L10">@Slf4j</span>
 @Component
 @RequiredArgsConstructor
 public class ProjectEventConsumer {
 
     private final AnaliticaService analiticaService;
 
-    @KafkaListener(topics = &quot;project-events&quot;, groupId = &quot;analitica-group&quot;)
+    @KafkaListener(topics = {&quot;project-events&quot;, &quot;innovatech.project.created&quot;}, groupId = &quot;analitica-group&quot;)
     public void consumeProjectEvent(ProjectEventDto event) {
-<span class="nc" id="L19">        log.info(&quot;Analítica: Recibido evento de proyecto ID: {} - Tipo: {}&quot;, event.getProjectId(), event.getEventType());</span>
-<span class="nc" id="L20">        analiticaService.processProjectEvent(event);</span>
-<span class="nc" id="L21">    }</span>
+<span class="fc" id="L19">        log.info(&quot;Analítica: Recibido evento proyecto ID: {} - Tipo: {}&quot;, event.getProjectId(), event.getType());</span>
+<span class="fc" id="L20">        analiticaService.processProjectEvent(event);</span>
+<span class="fc" id="L21">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -2,6 +2,10 @@
 
 import com.innovatech.recursos.dto.ResourceDtos.*;
 import com.innovatech.recursos.service.ResourceService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -11,70 +15,114 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Controlador REST del microservicio ms-recursos.
- * Expone endpoints para gestión de recursos humanos.
- *
- * @author Benjamin Valdes, Ignacio Munoz
- */
 @RestController
 @RequestMapping(&quot;/api/resources&quot;)
 @RequiredArgsConstructor
 @CrossOrigin(origins = &quot;*&quot;)
+@Tag(name = &quot;Recursos&quot;, description = &quot;Gestión de recursos humanos: disponibilidad, asignación y consulta por departamento&quot;)
 public class ResourceController {
 
     private final ResourceService resourceService;
 
     @PostMapping
+    @Operation(summary = &quot;Crear recurso&quot;, description = &quot;Registra un nuevo recurso humano en el sistema.&quot;)
+    @ApiResponses({
+            @ApiResponse(responseCode = &quot;201&quot;, description = &quot;Recurso creado correctamente&quot;),
+            @ApiResponse(responseCode = &quot;400&quot;, description = &quot;Datos de entrada inválidos&quot;),
+            @ApiResponse(responseCode = &quot;409&quot;, description = &quot;Ya existe un recurso con ese email&quot;)
+    })
     public ResponseEntity&lt;ResourceResponse&gt; create(@Valid @RequestBody CreateResourceRequest req) {
-<span class="nc" id="L30">        return ResponseEntity.status(HttpStatus.CREATED).body(resourceService.createResource(req));</span>
+<span class="fc" id="L35">        return ResponseEntity.status(HttpStatus.CREATED).body(resourceService.createResource(req));</span>
     }
 
     @GetMapping
+    @Operation(summary = &quot;Listar recursos&quot;, description = &quot;Retorna todos los recursos registrados.&quot;)
+    @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Lista de recursos&quot;)
     public ResponseEntity&lt;List&lt;ResourceResponse&gt;&gt; getAll() {
-<span class="nc" id="L35">        return ResponseEntity.ok(resourceService.getAllResources());</span>
+<span class="fc" id="L42">        return ResponseEntity.ok(resourceService.getAllResources());</span>
     }
 
     @GetMapping(&quot;/available&quot;)
+    @Operation(summary = &quot;Listar recursos disponibles&quot;, description = &quot;Retorna únicamente los recursos marcados como disponibles.&quot;)
+    @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Lista de recursos disponibles&quot;)
     public ResponseEntity&lt;List&lt;ResourceResponse&gt;&gt; getAvailable() {
-<span class="nc" id="L40">        return ResponseEntity.ok(resourceService.getAvailableResources());</span>
+<span class="fc" id="L49">        return ResponseEntity.ok(resourceService.getAvailableResources());</span>
     }
 
     @GetMapping(&quot;/department/{dept}&quot;)
+    @Operation(summary = &quot;Listar recursos por departamento&quot;, description = &quot;Filtra los recursos según el departamento indicado.&quot;)
+    @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Lista de recursos filtrados&quot;)
     public ResponseEntity&lt;List&lt;ResourceResponse&gt;&gt; getByDepartment(@PathVariable String dept) {
-<span class="nc" id="L45">        return ResponseEntity.ok(resourceService.getByDepartment(dept));</span>
+<span class="fc" id="L56">        return ResponseEntity.ok(resourceService.getByDepartment(dept));</span>
     }
 
     @GetMapping(&quot;/{id}&quot;)
+    @Operation(summary = &quot;Obtener recurso por ID&quot;, description = &quot;Retorna el detalle de un recurso específico.&quot;)
+    @ApiResponses({
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Recurso encontrado&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Recurso no encontrado&quot;)
+    })
     public ResponseEntity&lt;ResourceResponse&gt; getById(@PathVariable Long id) {
-<span class="nc" id="L50">        return ResponseEntity.ok(resourceService.getById(id));</span>
+<span class="fc" id="L66">        return ResponseEntity.ok(resourceService.getById(id));</span>
     }
 
     @PatchMapping(&quot;/{id}/availability&quot;)
+    @Operation(summary = &quot;Actualizar disponibilidad&quot;, description = &quot;Cambia el estado de disponibilidad de un recurso.&quot;)
+    @ApiResponses({
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Disponibilidad actualizada&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Recurso no encontrado&quot;)
+    })
     public ResponseEntity&lt;ResourceResponse&gt; updateAvailability(
             @PathVariable Long id,
             @RequestBody UpdateAvailabilityRequest req) {
-<span class="nc" id="L57">        return ResponseEntity.ok(resourceService.updateAvailability(id, req));</span>
+<span class="fc" id="L78">        return ResponseEntity.ok(resourceService.updateAvailability(id, req));</span>
     }
 
     @PatchMapping(&quot;/{id}/assign&quot;)
+    @Operation(summary = &quot;Asignar recurso a un proyecto&quot;, description = &quot;Asocia un recurso a un proyecto específico. Marca el recurso como no disponible.&quot;)
+    @ApiResponses({
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Recurso asignado correctamente&quot;),
+            @ApiResponse(responseCode = &quot;400&quot;, description = &quot;Datos de entrada inválidos&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Recurso no encontrado&quot;)
+    })
     public ResponseEntity&lt;ResourceResponse&gt; assignToProject(
             @PathVariable Long id,
-            @RequestBody Map&lt;String, Object&gt; body) {
-<span class="nc" id="L64">        Long projectId = Long.valueOf(body.get(&quot;projectId&quot;).toString());</span>
-<span class="nc" id="L65">        String projectName = body.get(&quot;projectName&quot;).toString();</span>
-<span class="nc" id="L66">        return ResponseEntity.ok(resourceService.assignToProject(id, projectId, projectName));</span>
+            @Valid @RequestBody AssignToProjectRequest req) {
+<span class="nc" id="L91">        return ResponseEntity.ok(resourceService.assignToProject(id, req.getProjectId(), req.getProjectName()));</span>
     }
 
     @DeleteMapping(&quot;/{id}&quot;)
+    @Operation(summary = &quot;Eliminar recurso&quot;, description = &quot;Elimina un recurso de forma permanente.&quot;)
+    @ApiResponses({
+            @ApiResponse(responseCode = &quot;204&quot;, description = &quot;Recurso eliminado&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Recurso no encontrado&quot;)
+    })
     public ResponseEntity&lt;Void&gt; delete(@PathVariable Long id) {
-<span class="nc" id="L71">        resourceService.deleteResource(id);</span>
-<span class="nc" id="L72">        return ResponseEntity.noContent().build();</span>
+<span class="nc" id="L101">        resourceService.deleteResource(id);</span>
+<span class="nc" id="L102">        return ResponseEntity.noContent().build();</span>
     }
 
     @GetMapping(&quot;/health&quot;)
+    @Operation(summary = &quot;Estado del servicio&quot;, description = &quot;Endpoint de health check de ms-recursos.&quot;)
+    @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Servicio activo&quot;)
     public ResponseEntity&lt;Map&lt;String, String&gt;&gt; health() {
-<span class="nc" id="L77">        return ResponseEntity.ok(Map.of(&quot;status&quot;, &quot;UP&quot;, &quot;service&quot;, &quot;ms-recursos&quot;, &quot;version&quot;, &quot;1.0.0&quot;));</span>
+<span class="nc" id="L109">        return ResponseEntity.ok(Map.of(&quot;status&quot;, &quot;UP&quot;, &quot;service&quot;, &quot;ms-recursos&quot;, &quot;version&quot;, &quot;1.0.0&quot;));</span>
+    }
+
+        @PutMapping(&quot;/capacity&quot;)
+    @Operation(summary = &quot;Liberar recursos de un proyecto&quot;,
+               description = &quot;Marca como disponibles todos los recursos asignados al proyecto indicado.&quot;)
+    @ApiResponses({
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Recursos liberados correctamente&quot;),
+            @ApiResponse(responseCode = &quot;400&quot;, description = &quot;projectId es requerido&quot;)
+    })
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; releaseCapacity(@RequestParam Long projectId) {
+<span class="nc" id="L120">        int released = resourceService.releaseByProject(projectId);</span>
+<span class="nc" id="L121">        return ResponseEntity.ok(Map.of(</span>
+            &quot;projectId&quot;, projectId,
+<span class="nc" id="L123">            &quot;resourcesReleased&quot;, released,</span>
+            &quot;message&quot;, released + &quot; recurso(s) liberado(s) del proyecto &quot; + projectId
+        ));
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

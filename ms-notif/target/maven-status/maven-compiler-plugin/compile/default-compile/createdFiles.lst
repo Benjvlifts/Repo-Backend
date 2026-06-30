@@ -1,6 +1,8 @@
+com\innovatech\notif\config\GlobalExceptionHandler.class
 com\innovatech\notif\controller\NotificationController.class
 com\innovatech\notif\kafka\ProjectNotificationConsumer.class
 com\innovatech\notif\model\Notification$NotificationBuilder.class
+com\innovatech\notif\config\OpenApiConfig.class
 com\innovatech\notif\MsNotifApplication.class
 com\innovatech\notif\model\Notification.class
 com\innovatech\notif\dto\ProjectEventDto.class

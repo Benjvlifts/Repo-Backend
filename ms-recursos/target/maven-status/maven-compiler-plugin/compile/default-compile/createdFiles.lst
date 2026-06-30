@@ -1,9 +1,12 @@
 com\innovatech\recursos\dto\ResourceDtos$UpdateAvailabilityRequest.class
 com\innovatech\recursos\dto\ResourceDtos$CreateResourceRequest.class
 com\innovatech\recursos\config\GlobalExceptionHandler.class
+com\innovatech\recursos\config\OpenApiConfig.class
 com\innovatech\recursos\model\Resource.class
 com\innovatech\recursos\service\ResourceService.class
 com\innovatech\recursos\MsRecursosApplication.class
+com\innovatech\recursos\dto\ResourceDtos$AssignToProjectRequest$AssignToProjectRequestBuilder.class
+com\innovatech\recursos\dto\ResourceDtos$AssignToProjectRequest.class
 com\innovatech\recursos\dto\ResourceDtos$ResourceResponse$ResourceResponseBuilder.class
 com\innovatech\recursos\dto\ResourceDtos$ResourceResponse.class
 com\innovatech\recursos\config\SecurityConfig.class

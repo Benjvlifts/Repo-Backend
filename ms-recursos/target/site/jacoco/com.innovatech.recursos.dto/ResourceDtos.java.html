@@ -3,39 +3,46 @@
 import com.innovatech.recursos.model.Resource;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
-<span class="nc" id="L10">public class ResourceDtos {</span>
+<span class="nc" id="L11">public class ResourceDtos {</span>
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class CreateResourceRequest {
-        @NotBlank(message = &quot;El nombre es obligatorio&quot;)
-        private String name;
-
-        @Email(message = &quot;Formato de email inválido&quot;)
-        @NotBlank(message = &quot;El email es obligatorio&quot;)
-        private String email;
-
-        @NotBlank(message = &quot;El departamento es obligatorio&quot;)
-        private String department;
-
+        @NotBlank(message = &quot;El nombre es obligatorio&quot;)       private String name;
+        @Email @NotBlank(message = &quot;El email es obligatorio&quot;) private String email;
+        @NotBlank(message = &quot;El departamento es obligatorio&quot;) private String department;
         private Resource.ResourceRole role;
         private String skills;
+        /** NUEVO: ID del usuario en ms-auth. Necesario para la correlación Kafka automática. */
+        private Long userId;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class AssignToProjectRequest {
+        @NotNull(message = &quot;El ID del proyecto es obligatorio&quot;)
+        private Long projectId;
+
+        @NotBlank(message = &quot;El nombre del proyecto es obligatorio&quot;)
+        private String projectName;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ResourceResponse {
-        private Long id;
+        private Long   id;
         private String name;
         private String email;
         private String department;
         private String role;
         private boolean available;
         private String skills;
-        private Long assignedProjectId;
+        private Long   assignedProjectId;
         private String assignedProjectName;
+        /** NUEVO: expuesto para que el frontend pueda vincular con el perfil del usuario. */
+        private Long   userId;
         private LocalDateTime createdAt;
     }
 

@@ -1,5 +1,7 @@
 GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
-ms-analitica,com.innovatech.analitica,MsAnaliticaApplication,8,0,0,0,3,0,2,0,2,0
-ms-analitica,com.innovatech.analitica.controller,AnaliticaController,11,0,0,0,2,0,2,0,2,0
-ms-analitica,com.innovatech.analitica.kafka,ProjectEventConsumer,16,0,0,0,4,0,2,0,2,0
-ms-analitica,com.innovatech.analitica.service,AnaliticaService,4,67,2,4,0,13,2,5,0,4
+ms-analitica,com.innovatech.analitica,MsAnaliticaApplication,5,3,0,0,2,1,1,1,1,1
+ms-analitica,com.innovatech.analitica.controller,AnaliticaController,0,19,0,0,0,4,0,4,0,4
+ms-analitica,com.innovatech.analitica.kafka,ProjectEventConsumer,0,16,0,0,0,4,0,2,0,2
+ms-analitica,com.innovatech.analitica.service,AnaliticaService,32,219,12,9,10,56,11,13,0,10
+ms-analitica,com.innovatech.analitica.config,OpenApiConfig,0,23,0,0,0,8,0,2,0,2
+ms-analitica,com.innovatech.analitica.config,GlobalExceptionHandler,11,46,0,0,2,9,1,4,1,4

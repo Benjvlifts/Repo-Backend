@@ -1,2 +1,8 @@
+com\innovatech\analitica\AnaliticaControllerTest.class
 com\innovatech\analitica\AnaliticaServiceTest$ProcessEventTests.class
+com\innovatech\analitica\AnaliticaServiceTest$GetMetricsTests.class
+com\innovatech\analitica\AnaliticaServiceTest$GetSummaryTests.class
 com\innovatech\analitica\AnaliticaServiceTest.class
+com\innovatech\analitica\ProjectEventConsumerTest.class
+com\innovatech\analitica\MsAnaliticaApplicationTests.class
+com\innovatech\analitica\AnaliticaServiceTest$GetProjectMetricsTests.class

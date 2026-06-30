@@ -2,28 +2,58 @@
 
 import com.innovatech.notif.model.Notification;
 import com.innovatech.notif.service.NotificationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping(&quot;/api/v1/notificaciones&quot;)
 @RequiredArgsConstructor
+@CrossOrigin(origins = &quot;*&quot;)
+@Tag(name = &quot;Notificaciones&quot;, description = &quot;Consulta y marcado de notificaciones generadas por eventos de proyectos&quot;)
 public class NotificationController {
 
     private final NotificationService notificationService;
 
     @GetMapping(&quot;/proyecto/{projectId}&quot;)
+    @Operation(summary = &quot;Listar notificaciones de un proyecto&quot;,
+               description = &quot;Retorna todas las notificaciones asociadas a un proyecto.&quot;)
+    @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Lista de notificaciones (puede ser vacía)&quot;)
     public ResponseEntity&lt;List&lt;Notification&gt;&gt; getNotifications(@PathVariable Long projectId) {
-<span class="nc" id="L20">        return ResponseEntity.ok(notificationService.getNotificationsForProject(projectId));</span>
+<span class="fc" id="L30">        return ResponseEntity.ok(notificationService.getNotificationsForProject(projectId));</span>
+    }
+
+    @GetMapping(&quot;/proyecto/{projectId}/no-leidas&quot;)
+    @Operation(summary = &quot;Listar notificaciones no leídas&quot;,
+               description = &quot;Retorna solo las notificaciones no leídas de un proyecto.&quot;)
+    @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Lista de notificaciones no leídas (puede ser vacía)&quot;)
+    public ResponseEntity&lt;List&lt;Notification&gt;&gt; getUnread(@PathVariable Long projectId) {
+<span class="fc" id="L38">        return ResponseEntity.ok(notificationService.getUnreadForProject(projectId));</span>
     }
 
     @PatchMapping(&quot;/{id}/read&quot;)
+    @Operation(summary = &quot;Marcar notificación como leída&quot;, description = &quot;Actualiza el estado de una notificación a leída.&quot;)
+    @ApiResponses({
+            @ApiResponse(responseCode = &quot;204&quot;, description = &quot;Notificación marcada como leída&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Notificación no encontrada&quot;)
+    })
     public ResponseEntity&lt;Void&gt; markAsRead(@PathVariable Long id) {
-<span class="nc" id="L25">        notificationService.markAsRead(id);</span>
-<span class="nc" id="L26">        return ResponseEntity.noContent().build();</span>
+<span class="fc" id="L48">        notificationService.markAsRead(id);</span>
+<span class="fc" id="L49">        return ResponseEntity.noContent().build();</span>
+    }
+
+    @GetMapping(&quot;/health&quot;)
+    @Operation(summary = &quot;Estado del servicio&quot;, description = &quot;Health check de ms-notif.&quot;)
+    @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Servicio activo&quot;)
+    public ResponseEntity&lt;Map&lt;String, String&gt;&gt; health() {
+<span class="fc" id="L56">        return ResponseEntity.ok(Map.of(&quot;status&quot;, &quot;UP&quot;, &quot;service&quot;, &quot;ms-notif&quot;, &quot;version&quot;, &quot;1.0.0&quot;));</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

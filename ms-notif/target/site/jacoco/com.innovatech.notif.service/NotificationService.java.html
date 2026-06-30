@@ -9,8 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
+import lombok.extern.slf4j.Slf4j;
 @Service
+<span class="fc" id="L14">@Slf4j </span>
 @RequiredArgsConstructor
 public class NotificationService {
 
@@ -18,34 +19,78 @@ public class NotificationService {
 
     @Transactional
     public Notification createNotification(Long targetId, String targetType, String message) {
-<span class="fc" id="L21">        Notification notification = Notification.builder()</span>
-<span class="fc" id="L22">                .targetId(targetId)</span>
-<span class="fc" id="L23">                .targetType(targetType)</span>
-<span class="fc" id="L24">                .message(message)</span>
-<span class="fc" id="L25">                .isRead(false)</span>
-<span class="fc" id="L26">                .createdAt(LocalDateTime.now())</span>
-<span class="fc" id="L27">                .build();</span>
-<span class="fc" id="L28">        return notificationRepository.save(notification);</span>
+<span class="fc" id="L22">        Notification notification = Notification.builder()</span>
+<span class="fc" id="L23">                .targetId(targetId)</span>
+<span class="fc" id="L24">                .targetType(targetType)</span>
+<span class="fc" id="L25">                .message(message)</span>
+<span class="fc" id="L26">                .read(false)</span>
+<span class="fc" id="L27">                .createdAt(LocalDateTime.now())</span>
+<span class="fc" id="L28">                .build();</span>
+<span class="fc" id="L29">        return notificationRepository.save(notification);</span>
     }
 
     @Transactional
     public void processProjectEvent(ProjectEventDto event) {
-<span class="fc" id="L33">        String msg = String.format(&quot;El proyecto %d ha registrado un evento: %s. Estado actual: %s&quot;, </span>
-<span class="fc" id="L34">                event.getProjectId(), event.getEventType(), event.getStatus());</span>
-        
-<span class="fc" id="L36">        createNotification(event.getProjectId(), &quot;PROJECT&quot;, msg);</span>
+<span class="fc" id="L34">        String msg = buildMessage(event);</span>
+<span class="fc" id="L35">        createNotification(event.getProjectId(), &quot;PROJECT&quot;, msg);</span>
+<span class="fc" id="L36">        log.info(&quot;🔔 [Kafka] Notificación creada — proyecto id={}: {}&quot;, event.getProjectId(), msg);</span>
 <span class="fc" id="L37">    }</span>
 
     public List&lt;Notification&gt; getNotificationsForProject(Long projectId) {
 <span class="fc" id="L40">        return notificationRepository.findByTargetIdAndTargetTypeOrderByCreatedAtDesc(projectId, &quot;PROJECT&quot;);</span>
     }
 
+    public List&lt;Notification&gt; getUnreadForProject(Long projectId) {
+<span class="fc" id="L44">        return notificationRepository.findByTargetIdAndTargetTypeAndReadFalse(projectId, &quot;PROJECT&quot;);</span>
+    }
+
     @Transactional
     public void markAsRead(Long notificationId) {
-<span class="fc" id="L45">        Notification notification = notificationRepository.findById(notificationId)</span>
-<span class="fc" id="L46">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Notificación no encontrada&quot;));</span>
-<span class="fc" id="L47">        notification.setRead(true);</span>
-<span class="fc" id="L48">        notificationRepository.save(notification);</span>
-<span class="fc" id="L49">    }</span>
+<span class="fc" id="L49">        Notification notification = notificationRepository.findById(notificationId)</span>
+<span class="fc" id="L50">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Notificación no encontrada con id: &quot; + notificationId));</span>
+<span class="fc" id="L51">        notification.setRead(true);</span>
+<span class="fc" id="L52">        notificationRepository.save(notification);</span>
+<span class="fc" id="L53">    }</span>
+
+    private String buildMessage(ProjectEventDto event) {
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">        String name      = event.getProjectName() != null</span>
+<span class="nc" id="L57">                           ? event.getProjectName()</span>
+<span class="fc" id="L58">                           : &quot;Proyecto ID &quot; + event.getProjectId();</span>
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">        String eventType = event.getEventType() != null ? event.getEventType().toUpperCase() : &quot;&quot;;</span>
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">        String status    = event.getStatus() != null ? event.getStatus() : &quot;&quot;;</span>
+
+<span class="pc bpc" id="L62" title="4 of 5 branches missed.">        return switch (eventType) {</span>
+            case &quot;PROJECT_CREATED&quot; -&gt;
+<span class="nc" id="L64">                String.format(&quot;✅ Nuevo proyecto creado: \&quot;%s\&quot; — Estado inicial: %s.&quot;, name, status);</span>
+            case &quot;STATUS_CHANGED&quot;  -&gt;
+<span class="nc" id="L66">                buildStatusMessage(name, status);</span>
+            case &quot;RESOURCE_ASSIGNED&quot; -&gt; {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">                String emp = event.getAssignedEmployeeName() != null</span>
+<span class="nc" id="L69">                             ? event.getAssignedEmployeeName()</span>
+<span class="nc" id="L70">                             : &quot;ID &quot; + event.getAssignedEmployeeId();</span>
+<span class="nc" id="L71">                yield String.format(&quot;👤 %s fue asignado/a al proyecto \&quot;%s\&quot;.&quot;, emp, name);</span>
+            }
+            case &quot;RESOURCE_UNASSIGNED&quot; -&gt; {
+<span class="nc bnc" id="L74" title="All 2 branches missed.">                String emp = event.getAssignedEmployeeName() != null</span>
+<span class="nc" id="L75">                             ? event.getAssignedEmployeeName()</span>
+<span class="nc" id="L76">                             : &quot;ID &quot; + event.getAssignedEmployeeId();</span>
+<span class="nc" id="L77">                yield String.format(&quot;🚪 %s fue removido/a del proyecto \&quot;%s\&quot;.&quot;, emp, name);</span>
+            }
+            default -&gt;
+                // Fallback por compatibilidad con mensajes sin eventType
+<span class="fc" id="L81">                buildStatusMessage(name, status);</span>
+        };
+    }
+
+    private String buildStatusMessage(String projectName, String status) {
+<span class="pc bpc" id="L86" title="5 of 6 branches missed.">        return switch (status.toUpperCase()) {</span>
+<span class="nc" id="L87">            case &quot;IN_PROGRESS&quot; -&gt; String.format(&quot;🚀 El proyecto \&quot;%s\&quot; pasó a estado En Progreso.&quot;, projectName);</span>
+<span class="nc" id="L88">            case &quot;ON_HOLD&quot;     -&gt; String.format(&quot;⏸️  El proyecto \&quot;%s\&quot; fue puesto en pausa.&quot;, projectName);</span>
+<span class="nc" id="L89">            case &quot;COMPLETED&quot;   -&gt; String.format(&quot;🎉 El proyecto \&quot;%s\&quot; fue completado exitosamente.&quot;, projectName);</span>
+<span class="nc" id="L90">            case &quot;CANCELLED&quot;   -&gt; String.format(&quot;❌ El proyecto \&quot;%s\&quot; fue cancelado.&quot;, projectName);</span>
+<span class="fc" id="L91">            case &quot;PLANNING&quot;    -&gt; String.format(&quot;📋 El proyecto \&quot;%s\&quot; volvió a estado de Planificación.&quot;, projectName);</span>
+<span class="nc" id="L92">            default            -&gt; String.format(&quot;ℹ️  Proyecto \&quot;%s\&quot; — nuevo estado: %s.&quot;, projectName, status);</span>
+        };
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

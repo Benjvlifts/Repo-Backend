@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.innovatech.notif.NotificationServiceTest
 -------------------------------------------------------------------------------
-Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.308 s -- in com.innovatech.notif.NotificationServiceTest
+Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.701 s -- in com.innovatech.notif.NotificationServiceTest
