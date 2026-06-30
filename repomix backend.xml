@@ -3022,82 +3022,6 @@ ms-notif/.../application.yml                        (+ rutas springdoc)
 ```
 </file>
 
-<file path=".github/workflows/backend-ci.yml">
-name: Backend CI Pipeline
-
-on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [ms-auth, ms-proyectos, ms-recursos, ms-analitica, ms-notif]
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up JDK 21
-      uses: actions/setup-java@v3
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: maven
-
-    # 'verify' corre los tests y además dispara jacoco:report (fase test/verify
-    # según el pom de cada microservicio), generando target/site/jacoco/jacoco.xml
-    - name: Run Unit Tests + JaCoCo Coverage for ${{ matrix.service }}
-      run: |
-        cd ${{ matrix.service }}
-        chmod +x mvnw
-        ./mvnw verify
-
-    - name: Upload JaCoCo report for ${{ matrix.service }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: jacoco-report-${{ matrix.service }}
-        path: ${{ matrix.service }}/target/site/jacoco/
-        retention-days: 7
-
-  sonarcloud:
-    # Job independiente: analiza cada microservicio en SonarCloud y publica
-    # las métricas y gráficos (cobertura, bugs, code smells, duplicación, etc.).
-    # Requiere el secret SONAR_TOKEN configurado en GitHub
-    # (Settings > Secrets and variables > Actions > New repository secret).
-    # Si el secret no existe, este job se omite automáticamente.
-    runs-on: ubuntu-latest
-    needs: test
-    if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
-    strategy:
-      matrix:
-        service: [ms-auth, ms-proyectos, ms-recursos, ms-analitica, ms-notif]
-
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0   # SonarCloud necesita el historial completo para el blame de líneas
-
-    - name: Set up JDK 21
-      uses: actions/setup-java@v3
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: maven
-
-    - name: Verify + analyze ${{ matrix.service }} with SonarCloud
-      if: ${{ env.SONAR_TOKEN != '' }}
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: |
-        cd ${{ matrix.service }}
-        chmod +x mvnw
-        ./mvnw verify sonar:sonar -Dsonar.token=$SONAR_TOKEN
-</file>
-
 <file path=".gitignore">
 # Maven - carpetas compiladas Java
 **/target/
@@ -6973,251 +6897,6 @@ public class AuthService {
 }
 </file>
 
-<file path="ms-auth/src/test/java/com/innovatech/auth/AuthControllerTest.java">
-package com.innovatech.auth;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.innovatech.auth.config.SecurityConfig;
-import com.innovatech.auth.controller.AuthController;
-import com.innovatech.auth.dto.AuthDtos.*;
-import com.innovatech.auth.model.User;
-import com.innovatech.auth.service.AuthService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
-import java.util.Map;
-
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-/**
- * Pruebas unitarias para AuthController usando MockMvc (sin servidor real).
- * Valida: status HTTP, content-type, cuerpo de respuesta, manejo de errores.
- *
- * @author Benjamin Valdes, Ignacio Munoz
- */
-@WebMvcTest(AuthController.class)
-@Import(SecurityConfig.class)
-@DisplayName("AuthController — Pruebas de Capa Web")
-class AuthControllerTest {
-
-    @Autowired private MockMvc mockMvc;
-    @Autowired private ObjectMapper objectMapper;
-    @MockBean  private AuthService authService;
-
-    private AuthResponse sampleAuthResponse;
-    private UserResponse sampleUserResponse;
-
-    @BeforeEach
-    void setUp() {
-        sampleAuthResponse = AuthResponse.builder()
-                .token("jwt_test_token")
-                .type("Bearer")
-                .userId(1L)
-                .name("Benjamin Valdes")
-                .email("benjamin@innovatech.cl")
-                .role("EMPLOYEE")
-                .build();
-
-        sampleUserResponse = UserResponse.builder()
-                .id(1L)
-                .name("Benjamin Valdes")
-                .email("benjamin@innovatech.cl")
-                .role("EMPLOYEE")
-                .active(true)
-                .build();
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // POST /api/auth/register
-    // ═══════════════════════════════════════════════════════════════
-
-    @Nested
-    @DisplayName("POST /api/auth/register")
-    class RegisterEndpointTests {
-
-        @Test
-        @DisplayName("✅ Retorna 201 CREATED con token al registrar usuario válido")
-        void register_validRequest_returns201WithToken() throws Exception {
-            RegisterRequest request = RegisterRequest.builder()
-                    .name("Benjamin Valdes")
-                    .email("benjamin@innovatech.cl")
-                    .password("secret123")
-                    .build();
-
-            when(authService.register(any(RegisterRequest.class))).thenReturn(sampleAuthResponse);
-
-            mockMvc.perform(post("/api/auth/register")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.token").value("jwt_test_token"))
-                    .andExpect(jsonPath("$.type").value("Bearer"))
-                    .andExpect(jsonPath("$.email").value("benjamin@innovatech.cl"))
-                    .andExpect(jsonPath("$.role").value("EMPLOYEE"));
-        }
-
-        @Test
-        @DisplayName("❌ Retorna 400 BAD_REQUEST cuando email ya existe")
-        void register_duplicateEmail_returns400() throws Exception {
-            RegisterRequest request = RegisterRequest.builder()
-                    .name("Benjamin Valdes")
-                    .email("benjamin@innovatech.cl")
-                    .password("secret123")
-                    .build();
-
-            when(authService.register(any())).thenThrow(
-                    new IllegalArgumentException("El email ya está registrado: benjamin@innovatech.cl"));
-
-            mockMvc.perform(post("/api/auth/register")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isBadRequest());
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // POST /api/auth/login
-    // ═══════════════════════════════════════════════════════════════
-
-    @Nested
-    @DisplayName("POST /api/auth/login")
-    class LoginEndpointTests {
-
-        @Test
-        @DisplayName("✅ Retorna 200 OK con token al hacer login válido")
-        void login_validCredentials_returns200WithToken() throws Exception {
-            LoginRequest request = new LoginRequest("benjamin@innovatech.cl", "secret123");
-            when(authService.login(any(LoginRequest.class))).thenReturn(sampleAuthResponse);
-
-            mockMvc.perform(post("/api/auth/login")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.token").value("jwt_test_token"))
-                    .andExpect(jsonPath("$.userId").value(1))
-                    .andExpect(jsonPath("$.email").value("benjamin@innovatech.cl"));
-        }
-
-        @Test
-        @DisplayName("❌ Retorna 401 cuando credenciales son inválidas")
-        void login_invalidCredentials_returns401() throws Exception {
-            LoginRequest request = new LoginRequest("wrong@email.cl", "badpass");
-            when(authService.login(any())).thenThrow(new BadCredentialsException("Credenciales inválidas"));
-
-            mockMvc.perform(post("/api/auth/login")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isUnauthorized());
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // POST /api/auth/validate
-    // ═══════════════════════════════════════════════════════════════
-
-    @Nested
-    @DisplayName("POST /api/auth/validate")
-    class ValidateEndpointTests {
-
-        @Test
-        @DisplayName("✅ Retorna {valid: true} para token válido")
-        void validateToken_validToken_returnsTrue() throws Exception {
-            when(authService.validateToken("valid_jwt")).thenReturn(true);
-
-            mockMvc.perform(post("/api/auth/validate")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(Map.of("token", "valid_jwt"))))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.valid").value(true));
-        }
-
-        @Test
-        @DisplayName("✅ Retorna {valid: false} para token inválido")
-        void validateToken_invalidToken_returnsFalse() throws Exception {
-            when(authService.validateToken("bad_jwt")).thenReturn(false);
-
-            mockMvc.perform(post("/api/auth/validate")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(Map.of("token", "bad_jwt"))))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.valid").value(false));
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // GET /api/auth/users
-    // ═══════════════════════════════════════════════════════════════
-
-    @Nested
-    @DisplayName("GET /api/auth/users")
-    class UserEndpointTests {
-
-        @Test
-        @DisplayName("✅ Retorna 200 con lista de usuarios")
-        void getAllUsers_returns200WithList() throws Exception {
-            when(authService.getAllUsers()).thenReturn(List.of(sampleUserResponse));
-
-            mockMvc.perform(get("/api/auth/users"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$").isArray())
-                    .andExpect(jsonPath("$[0].email").value("benjamin@innovatech.cl"))
-                    .andExpect(jsonPath("$[0].role").value("EMPLOYEE"));
-        }
-
-        @Test
-        @DisplayName("✅ Retorna 200 con usuario específico por ID")
-        void getUserById_existingId_returns200() throws Exception {
-            when(authService.getUserById(1L)).thenReturn(sampleUserResponse);
-
-            mockMvc.perform(get("/api/auth/users/1"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(1))
-                    .andExpect(jsonPath("$.name").value("Benjamin Valdes"));
-        }
-
-        @Test
-        @DisplayName("❌ Retorna 400 si ID de usuario no existe")
-        void getUserById_nonExistingId_returns400() throws Exception {
-            when(authService.getUserById(99L)).thenThrow(
-                    new IllegalArgumentException("Usuario no encontrado con id: 99"));
-
-            mockMvc.perform(get("/api/auth/users/99"))
-                    .andExpect(status().isBadRequest());
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // GET /api/auth/health
-    // ═══════════════════════════════════════════════════════════════
-
-    @Nested
-    @DisplayName("GET /api/auth/health")
-    class HealthEndpointTests {
-
-        @Test
-        @DisplayName("✅ Health endpoint retorna status UP")
-        void health_returns200WithStatusUp() throws Exception {
-            mockMvc.perform(get("/api/auth/health"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.status").value("UP"))
-                    .andExpect(jsonPath("$.service").value("ms-auth"));
-        }
-    }
-}
-</file>
-
 <file path="ms-auth/src/test/java/com/innovatech/auth/MsAuthApplicationTests.java">
 package com.innovatech.auth;
 
@@ -8909,6 +8588,83 @@ spring.jpa.hibernate.ddl-auto=create-drop
 spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
 </file>
 
+<file path=".github/workflows/backend-ci.yml">
+name: Backend CI Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [ms-auth, ms-proyectos, ms-recursos, ms-analitica, ms-notif]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v3
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    # 'verify' corre los tests y además dispara jacoco:report (fase test/verify
+    # según el pom de cada microservicio), generando target/site/jacoco/jacoco.xml
+    - name: Run Unit Tests + JaCoCo Coverage for ${{ matrix.service }}
+      run: |
+        cd ${{ matrix.service }}
+        chmod +x mvnw
+        ./mvnw verify
+
+    - name: Upload JaCoCo report for ${{ matrix.service }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: jacoco-report-${{ matrix.service }}
+        path: ${{ matrix.service }}/target/site/jacoco/
+        retention-days: 7
+
+  sonarcloud:
+    # Job independiente: analiza cada microservicio en SonarCloud y publica
+    # las métricas y gráficos (cobertura, bugs, code smells, duplicación, etc.).
+    # Requiere el secret SONAR_TOKEN configurado en GitHub
+    # (Settings > Secrets and variables > Actions > New repository secret).
+    # Si el secret no existe, este job se omite automáticamente.
+    runs-on: ubuntu-latest
+    needs: test
+    if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+    strategy:
+      matrix:
+        service: [ms-auth, ms-proyectos, ms-recursos, ms-analitica, ms-notif]
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0   # SonarCloud necesita el historial completo para el blame de líneas
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v3
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Verify + analyze ${{ matrix.service }} with SonarCloud
+      if: ${{ env.SONAR_TOKEN != '' }}
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: |
+        cd ${{ matrix.service }}
+        chmod +x mvnw
+        ./mvnw verify sonar:sonar -Dsonar.token=$SONAR_TOKEN
+</file>
+
 <file path="innovatech-bff-valdes-munoz/src/index.js">
 require('dotenv').config();
 const express = require('express');
@@ -9843,6 +9599,253 @@ public class SecurityConfig {
 }
 </file>
 
+<file path="ms-auth/src/test/java/com/innovatech/auth/AuthControllerTest.java">
+package com.innovatech.auth;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.innovatech.auth.config.SecurityConfig;
+import com.innovatech.auth.controller.AuthController;
+import com.innovatech.auth.dto.AuthDtos.*;
+import com.innovatech.auth.model.User;
+import com.innovatech.auth.service.AuthService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Pruebas unitarias para AuthController usando MockMvc (sin servidor real).
+ * Valida: status HTTP, content-type, cuerpo de respuesta, manejo de errores.
+ *
+ * @author Benjamin Valdes, Ignacio Munoz
+ */
+@WebMvcTest(AuthController.class)
+@Import(SecurityConfig.class)
+@TestPropertySource(properties = {"app.jwt.secret=un-secreto-muy-largo-y-seguro-para-pruebas-locales"})
+@DisplayName("AuthController — Pruebas de Capa Web")
+class AuthControllerTest {
+
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper objectMapper;
+    @MockBean  private AuthService authService;
+
+    private AuthResponse sampleAuthResponse;
+    private UserResponse sampleUserResponse;
+
+    @BeforeEach
+    void setUp() {
+        sampleAuthResponse = AuthResponse.builder()
+                .token("jwt_test_token")
+                .type("Bearer")
+                .userId(1L)
+                .name("Benjamin Valdes")
+                .email("benjamin@innovatech.cl")
+                .role("EMPLOYEE")
+                .build();
+
+        sampleUserResponse = UserResponse.builder()
+                .id(1L)
+                .name("Benjamin Valdes")
+                .email("benjamin@innovatech.cl")
+                .role("EMPLOYEE")
+                .active(true)
+                .build();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // POST /api/auth/register
+    // ═══════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("POST /api/auth/register")
+    class RegisterEndpointTests {
+
+        @Test
+        @DisplayName("✅ Retorna 201 CREATED con token al registrar usuario válido")
+        void register_validRequest_returns201WithToken() throws Exception {
+            RegisterRequest request = RegisterRequest.builder()
+                    .name("Benjamin Valdes")
+                    .email("benjamin@innovatech.cl")
+                    .password("secret123")
+                    .build();
+
+            when(authService.register(any(RegisterRequest.class))).thenReturn(sampleAuthResponse);
+
+            mockMvc.perform(post("/api/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.token").value("jwt_test_token"))
+                    .andExpect(jsonPath("$.type").value("Bearer"))
+                    .andExpect(jsonPath("$.email").value("benjamin@innovatech.cl"))
+                    .andExpect(jsonPath("$.role").value("EMPLOYEE"));
+        }
+
+        @Test
+        @DisplayName("❌ Retorna 400 BAD_REQUEST cuando email ya existe")
+        void register_duplicateEmail_returns400() throws Exception {
+            RegisterRequest request = RegisterRequest.builder()
+                    .name("Benjamin Valdes")
+                    .email("benjamin@innovatech.cl")
+                    .password("secret123")
+                    .build();
+
+            when(authService.register(any())).thenThrow(
+                    new IllegalArgumentException("El email ya está registrado: benjamin@innovatech.cl"));
+
+            mockMvc.perform(post("/api/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // POST /api/auth/login
+    // ═══════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("POST /api/auth/login")
+    class LoginEndpointTests {
+
+        @Test
+        @DisplayName("✅ Retorna 200 OK con token al hacer login válido")
+        void login_validCredentials_returns200WithToken() throws Exception {
+            LoginRequest request = new LoginRequest("benjamin@innovatech.cl", "secret123");
+            when(authService.login(any(LoginRequest.class))).thenReturn(sampleAuthResponse);
+
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.token").value("jwt_test_token"))
+                    .andExpect(jsonPath("$.userId").value(1))
+                    .andExpect(jsonPath("$.email").value("benjamin@innovatech.cl"));
+        }
+
+        @Test
+        @DisplayName("❌ Retorna 401 cuando credenciales son inválidas")
+        void login_invalidCredentials_returns401() throws Exception {
+            LoginRequest request = new LoginRequest("wrong@email.cl", "badpass");
+            when(authService.login(any())).thenThrow(new BadCredentialsException("Credenciales inválidas"));
+
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // POST /api/auth/validate
+    // ═══════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("POST /api/auth/validate")
+    class ValidateEndpointTests {
+
+        @Test
+        @DisplayName("✅ Retorna {valid: true} para token válido")
+        void validateToken_validToken_returnsTrue() throws Exception {
+            when(authService.validateToken("valid_jwt")).thenReturn(true);
+
+            mockMvc.perform(post("/api/auth/validate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("token", "valid_jwt"))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.valid").value(true));
+        }
+
+        @Test
+        @DisplayName("✅ Retorna {valid: false} para token inválido")
+        void validateToken_invalidToken_returnsFalse() throws Exception {
+            when(authService.validateToken("bad_jwt")).thenReturn(false);
+
+            mockMvc.perform(post("/api/auth/validate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("token", "bad_jwt"))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.valid").value(false));
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GET /api/auth/users
+    // ═══════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("GET /api/auth/users")
+    class UserEndpointTests {
+
+        @Test
+        @DisplayName("✅ Retorna 200 con lista de usuarios")
+        void getAllUsers_returns200WithList() throws Exception {
+            when(authService.getAllUsers()).thenReturn(List.of(sampleUserResponse));
+
+            mockMvc.perform(get("/api/auth/users"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$[0].email").value("benjamin@innovatech.cl"))
+                    .andExpect(jsonPath("$[0].role").value("EMPLOYEE"));
+        }
+
+        @Test
+        @DisplayName("✅ Retorna 200 con usuario específico por ID")
+        void getUserById_existingId_returns200() throws Exception {
+            when(authService.getUserById(1L)).thenReturn(sampleUserResponse);
+
+            mockMvc.perform(get("/api/auth/users/1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(1))
+                    .andExpect(jsonPath("$.name").value("Benjamin Valdes"));
+        }
+
+        @Test
+        @DisplayName("❌ Retorna 400 si ID de usuario no existe")
+        void getUserById_nonExistingId_returns400() throws Exception {
+            when(authService.getUserById(99L)).thenThrow(
+                    new IllegalArgumentException("Usuario no encontrado con id: 99"));
+
+            mockMvc.perform(get("/api/auth/users/99"))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GET /api/auth/health
+    // ═══════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("GET /api/auth/health")
+    class HealthEndpointTests {
+
+        @Test
+        @DisplayName("✅ Health endpoint retorna status UP")
+        void health_returns200WithStatusUp() throws Exception {
+            mockMvc.perform(get("/api/auth/health"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("UP"))
+                    .andExpect(jsonPath("$.service").value("ms-auth"));
+        }
+    }
+}
+</file>
+
 <file path="ms-auth/src/test/java/com/innovatech/auth/AuthServiceTest.java">
 package com.innovatech.auth;
 
@@ -10307,168 +10310,6 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
-</file>
-
-<file path="ms-proyectos/pom.xml">
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.4.5</version>
-		<relativePath/>
-	</parent>
-	<groupId>com.innovatech</groupId>
-	<artifactId>ms-proyectos</artifactId>
-	<version>1.0.0</version>
-	<name>ms-proyectos</name>
-	<description>Microservicio de Gestión de Proyectos - Innovatech Solutions</description>
-
-	<properties>
-		<java.version>21</java.version>
-		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
-		<sonar.organization>innovatech-org</sonar.organization>
-		<sonar.projectKey>innovatech-org_ms-proyectos</sonar.projectKey>
-		<sonar.coverage.jacoco.xmlReportPaths>
-			${project.build.directory}/site/jacoco/jacoco.xml
-		</sonar.coverage.jacoco.xmlReportPaths>
-	</properties>
-
-	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-validation</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-security</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springdoc</groupId>
-			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.6.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.kafka</groupId>
-			<artifactId>spring-kafka</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.kafka</groupId>
-			<artifactId>spring-kafka-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>test</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-api</artifactId>
-			<version>0.12.5</version>
-		</dependency>
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-impl</artifactId>
-			<version>0.12.5</version>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-jackson</artifactId>
-			<version>0.12.5</version>
-			<scope>runtime</scope>
-		</dependency>
-	</dependencies>
-
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</exclude>
-					</excludes>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.jacoco</groupId>
-				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.12</version>
-				<executions>
-					<execution>
-						<id>prepare-agent</id>
-						<goals>
-							<goal>prepare-agent</goal>
-						</goals>
-					</execution>
-					<execution>
-						<id>report</id>
-						<phase>verify</phase>
-						<goals>
-							<goal>report</goal>
-						</goals>
-					</execution>
-										<execution>
-						<id>check</id>
-						<goals>
-							<goal>check</goal>
-						</goals>
-						<configuration>
-							<rules>
-								<rule>
-									<element>BUNDLE</element>
-									<limits>
-										<limit>
-											<counter>INSTRUCTION</counter>
-											<value>COVEREDRATIO</value>
-											<minimum>0.60</minimum>
-										</limit>
-									</limits>
-								</rule>
-							</rules>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.sonarsource.scanner.maven</groupId>
-				<artifactId>sonar-maven-plugin</artifactId>
-				<version>5.0.0.4389</version>
-			</plugin>
-		</plugins>
-	</build>
-</project>
 </file>
 
 <file path="ms-proyectos/src/main/java/com/innovatech/proyectos/controller/ProjectController.java">
@@ -12463,6 +12304,168 @@ class NotificationServiceTest {
         }
     }
 }
+</file>
+
+<file path="ms-proyectos/pom.xml">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.4.5</version>
+		<relativePath/>
+	</parent>
+	<groupId>com.innovatech</groupId>
+	<artifactId>ms-proyectos</artifactId>
+	<version>1.0.0</version>
+	<name>ms-proyectos</name>
+	<description>Microservicio de Gestión de Proyectos - Innovatech Solutions</description>
+
+	<properties>
+		<java.version>21</java.version>
+		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
+		<sonar.organization>innovatech-org</sonar.organization>
+		<sonar.projectKey>innovatech-org_ms-proyectos</sonar.projectKey>
+		<sonar.coverage.jacoco.xmlReportPaths>
+			${project.build.directory}/site/jacoco/jacoco.xml
+		</sonar.coverage.jacoco.xmlReportPaths>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>2.6.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.12.5</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.12.5</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>0.12.5</version>
+			<scope>runtime</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.12</version>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>check</id>
+						<goals>
+							<goal>check</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<rule>
+									<element>BUNDLE</element>
+									<limits>
+										<limit>
+											<counter>INSTRUCTION</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.50</minimum>
+										</limit>
+									</limits>
+								</rule>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.sonarsource.scanner.maven</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>5.0.0.4389</version>
+			</plugin>
+		</plugins>
+	</build>
+</project>
 </file>
 
 <file path="ms-auth/src/main/resources/application.properties">

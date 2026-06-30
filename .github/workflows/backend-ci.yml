@@ -24,13 +24,10 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
-    # 'verify' corre los tests y además dispara jacoco:report (fase test/verify
-    # según el pom de cada microservicio), generando target/site/jacoco/jacoco.xml
     - name: Run Unit Tests + JaCoCo Coverage for ${{ matrix.service }}
       run: |
         cd ${{ matrix.service }}
-        chmod +x mvnw
-        ./mvnw verify
+        mvn verify
 
     - name: Upload JaCoCo report for ${{ matrix.service }}
       uses: actions/upload-artifact@v4
@@ -40,11 +37,6 @@ jobs:
         retention-days: 7
 
   sonarcloud:
-    # Job independiente: analiza cada microservicio en SonarCloud y publica
-    # las métricas y gráficos (cobertura, bugs, code smells, duplicación, etc.).
-    # Requiere el secret SONAR_TOKEN configurado en GitHub
-    # (Settings > Secrets and variables > Actions > New repository secret).
-    # Si el secret no existe, este job se omite automáticamente.
     runs-on: ubuntu-latest
     needs: test
     if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
@@ -70,5 +62,4 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       run: |
         cd ${{ matrix.service }}
-        chmod +x mvnw
-        ./mvnw verify sonar:sonar -Dsonar.token=$SONAR_TOKEN
+        mvn verify sonar:sonar -Dsonar.token=$SONAR_TOKEN

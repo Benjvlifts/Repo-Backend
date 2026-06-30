@@ -3,7 +3,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.innovatech.auth.config.SecurityConfig;
 import com.innovatech.auth.controller.AuthController;
 import com.innovatech.auth.dto.AuthDtos.*;
-import com.innovatech.auth.model.User;
 import com.innovatech.auth.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +16,9 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import com.innovatech.auth.model.User;
+import com.innovatech.auth.security.JwtService;
+import com.innovatech.auth.service.AuthService;
 
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,7 @@ class AuthControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @MockBean  private AuthService authService;
+    @MockBean  private JwtService jwtService;
 
     private AuthResponse sampleAuthResponse;
     private UserResponse sampleUserResponse;
