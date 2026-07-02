@@ -230,7 +230,7 @@ El plugin `jacoco-maven-plugin` (v0.8.12) está integrado en la fase `verify` de
 Desde la carpeta de cada microservicio (`ms-auth`, `ms-proyectos`, `ms-recursos`, `ms-analitica`, `ms-notif`):
 
 ```bash
-mvn verify
+npm test -coverage
 ```
 
 Este comando compila, ejecuta la suite completa de JUnit 5/Mockito, genera el reporte JaCoCo y aplica el *check* de umbral mínimo de cobertura.
@@ -238,7 +238,7 @@ Este comando compila, ejecuta la suite completa de JUnit 5/Mockito, genera el re
 Para además publicar el análisis a SonarCloud:
 
 ```bash
-mvn verify sonar:sonar -Dsonar.token=TU_TOKEN_AQUI
+SonarCloud.io
 ```
 
 ### Pipeline de Integración Continua (`backend-ci.yml`)
