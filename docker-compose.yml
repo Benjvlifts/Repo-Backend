@@ -4,7 +4,7 @@ services:
     container_name: innovatech-postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
@@ -123,8 +123,8 @@ services:
       DB_HOST: postgres
       DB_NAME: auth_db
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      DB_PASSWORD: postgres
+      JWT_SECRET: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
     restart: unless-stopped
     networks: [innovatech-net]
 
@@ -144,9 +144,9 @@ services:
       DB_HOST: postgres
       DB_NAME: proyectos_db
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: postgres
       KAFKA_SERVER: kafka:9092
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
     restart: unless-stopped
     networks: [innovatech-net]
 
@@ -166,7 +166,7 @@ services:
       DB_HOST: postgres
       DB_NAME: recursos_db
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: postgres
       KAFKA_SERVER: kafka:9092
     restart: unless-stopped
     networks: [innovatech-net]
@@ -188,7 +188,7 @@ services:
       DB_PORT: 5432
       DB_NAME: analitica_db
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: postgres
       KAFKA_SERVER: kafka:9092
     restart: unless-stopped
     networks: [innovatech-net]
@@ -209,7 +209,7 @@ services:
       DB_HOST: postgres
       DB_NAME: notif_db
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: postgres
       KAFKA_SERVER: kafka:9092
     restart: unless-stopped
     networks: [innovatech-net]
