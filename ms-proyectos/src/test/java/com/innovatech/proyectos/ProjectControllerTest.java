@@ -5,9 +5,14 @@ import com.innovatech.proyectos.config.JwtAuthFilter;
 import com.innovatech.proyectos.config.JwtExtractor;
 import com.innovatech.proyectos.config.SecurityConfig;
 import com.innovatech.proyectos.controller.ProjectController;
+import com.innovatech.proyectos.dto.ProjectDtos.AssignEmployeeRequest;
 import com.innovatech.proyectos.dto.ProjectDtos.CreateProjectRequest;
+import com.innovatech.proyectos.dto.ProjectDtos.NoteResponse;
 import com.innovatech.proyectos.dto.ProjectDtos.ProjectResponse;
+import com.innovatech.proyectos.dto.ProjectDtos.ReviewNoteRequest;
+import com.innovatech.proyectos.dto.ProjectDtos.UpdateStatusRequest;
 import com.innovatech.proyectos.model.Project;
+import com.innovatech.proyectos.model.ProjectNote;
 import com.innovatech.proyectos.service.ProjectService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -137,5 +142,171 @@ class ProjectControllerTest {
                         .header("Authorization", FAKE_BEARER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value("PLANNING"));
+    }
+
+    // ── GET /api/projects/{id} ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("GET /api/projects/{id} → 200 cuando el solicitante es ADMIN")
+    void getProjectById_asAdmin_returns200() throws Exception {
+        when(jwtExtractor.extractUserId(anyString())).thenReturn(1L);
+        when(jwtExtractor.isAdmin(anyString())).thenReturn(true);
+        when(projectService.getProjectById(1L)).thenReturn(buildResponse(1L, "Portal Retail"));
+
+        mockMvc.perform(get("/api/projects/1").header("Authorization", FAKE_BEARER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    @DisplayName("GET /api/projects/{id} → 200 cuando el solicitante es el manager asignado")
+    void getProjectById_asAssignedManager_returns200() throws Exception {
+        when(jwtExtractor.extractUserId(anyString())).thenReturn(9L);
+        when(jwtExtractor.isAdmin(anyString())).thenReturn(false);
+        when(projectService.getProjectById(1L)).thenReturn(buildResponse(1L, "Portal Retail"));
+
+        mockMvc.perform(get("/api/projects/1").header("Authorization", FAKE_BEARER))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/projects/{id} → 403 cuando NO es ADMIN ni el manager asignado")
+    void getProjectById_notAdminNorAssignedManager_returns403() throws Exception {
+        when(jwtExtractor.extractUserId(anyString())).thenReturn(99L);
+        when(jwtExtractor.isAdmin(anyString())).thenReturn(false);
+        when(projectService.getProjectById(1L)).thenReturn(buildResponse(1L, "Portal Retail"));
+
+        mockMvc.perform(get("/api/projects/1").header("Authorization", FAKE_BEARER))
+                .andExpect(status().isForbidden());
+    }
+
+    // ── PATCH /api/projects/{id}/status ───────────────────────────────────────
+
+    @Test
+    @DisplayName("PATCH /api/projects/{id}/status → 200 cuando rol es ADMIN")
+    void updateStatus_asAdmin_returns200() throws Exception {
+        when(jwtExtractor.isAdmin(anyString())).thenReturn(true);
+        when(projectService.updateStatus(eq(1L), any()))
+                .thenReturn(buildResponse(1L, "Portal Retail"));
+
+        UpdateStatusRequest req = new UpdateStatusRequest();
+        req.setStatus(Project.ProjectStatus.IN_PROGRESS);
+
+        mockMvc.perform(patch("/api/projects/1/status")
+                        .header("Authorization", FAKE_BEARER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/projects/{id}/status → 403 cuando NO es ADMIN")
+    void updateStatus_notAdmin_returns403() throws Exception {
+        when(jwtExtractor.isAdmin(anyString())).thenReturn(false);
+
+        UpdateStatusRequest req = new UpdateStatusRequest();
+        req.setStatus(Project.ProjectStatus.IN_PROGRESS);
+
+        mockMvc.perform(patch("/api/projects/1/status")
+                        .header("Authorization", FAKE_BEARER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden());
+    }
+
+    // ── PATCH /api/projects/{id}/assign ───────────────────────────────────────
+
+    @Test
+    @DisplayName("PATCH /api/projects/{id}/assign → 200 cuando rol es ADMIN o MANAGER")
+    void assignEmployee_asAdminOrManager_returns200() throws Exception {
+        when(jwtExtractor.isAdminOrManager(anyString())).thenReturn(true);
+        when(projectService.assignEmployee(eq(1L), any()))
+                .thenReturn(buildResponse(1L, "Portal Retail"));
+
+        AssignEmployeeRequest req = new AssignEmployeeRequest();
+        req.setEmployeeId(5L);
+        req.setEmployeeName("Ignacio Muñoz");
+
+        mockMvc.perform(patch("/api/projects/1/assign")
+                        .header("Authorization", FAKE_BEARER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/projects/{id}/assign → 403 cuando NO es ADMIN ni MANAGER")
+    void assignEmployee_notAdminNorManager_returns403() throws Exception {
+        when(jwtExtractor.isAdminOrManager(anyString())).thenReturn(false);
+
+        AssignEmployeeRequest req = new AssignEmployeeRequest();
+        req.setEmployeeId(5L);
+        req.setEmployeeName("Ignacio Muñoz");
+
+        mockMvc.perform(patch("/api/projects/1/assign")
+                        .header("Authorization", FAKE_BEARER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden());
+    }
+
+    // ── DELETE /api/projects/{id} ─────────────────────────────────────────────
+
+    @Test
+    @DisplayName("DELETE /api/projects/{id} → 204 cuando rol es ADMIN")
+    void deleteProject_asAdmin_returns204() throws Exception {
+        when(jwtExtractor.isAdmin(anyString())).thenReturn(true);
+
+        mockMvc.perform(delete("/api/projects/1").header("Authorization", FAKE_BEARER))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/projects/{id} → 403 cuando NO es ADMIN")
+    void deleteProject_notAdmin_returns403() throws Exception {
+        when(jwtExtractor.isAdmin(anyString())).thenReturn(false);
+
+        mockMvc.perform(delete("/api/projects/1").header("Authorization", FAKE_BEARER))
+                .andExpect(status().isForbidden());
+    }
+
+    // ── PATCH /api/projects/{id}/notes/{noteId}/review ───────────────────────
+
+    @Test
+    @DisplayName("PATCH /api/projects/{id}/notes/{noteId}/review → 200 cuando rol es ADMIN o MANAGER")
+    void reviewNote_asAdminOrManager_returns200() throws Exception {
+        when(jwtExtractor.isAdminOrManager(anyString())).thenReturn(true);
+        when(jwtExtractor.extractUserId(anyString())).thenReturn(1L);
+        when(jwtExtractor.extractSubject(anyString())).thenReturn("admin@innovatech.cl");
+        when(jwtExtractor.extractRole(anyString())).thenReturn("ADMIN");
+        when(projectService.reviewNote(eq(1L), eq(10L), any(), eq(1L), eq("admin@innovatech.cl"), eq("ADMIN")))
+                .thenReturn(NoteResponse.builder()
+                        .id(10L).projectId(1L).status("APPROVED").build());
+
+        ReviewNoteRequest req = new ReviewNoteRequest();
+        req.setStatus(ProjectNote.NoteStatus.APPROVED);
+        req.setReviewComment("Buen avance");
+
+        mockMvc.perform(patch("/api/projects/1/notes/10/review")
+                        .header("Authorization", FAKE_BEARER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/projects/{id}/notes/{noteId}/review → 403 cuando NO es ADMIN ni MANAGER")
+    void reviewNote_notAdminNorManager_returns403() throws Exception {
+        when(jwtExtractor.isAdminOrManager(anyString())).thenReturn(false);
+
+        ReviewNoteRequest req = new ReviewNoteRequest();
+        req.setStatus(ProjectNote.NoteStatus.REJECTED);
+
+        mockMvc.perform(patch("/api/projects/1/notes/10/review")
+                        .header("Authorization", FAKE_BEARER)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden());
     }
 }

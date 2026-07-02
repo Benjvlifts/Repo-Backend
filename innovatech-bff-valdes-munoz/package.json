@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "jest --passWithNoTests --forceExit",
-    "test:ci": "jest --passWithNoTests --forceExit --coverage"
+    "test": "jest --forceExit",
+    "test:ci": "jest --forceExit --coverage"
   },
   "type": "commonjs",
   "dependencies": {
