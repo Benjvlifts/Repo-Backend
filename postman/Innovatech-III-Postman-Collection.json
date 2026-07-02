@@ -1,0 +1,1655 @@
+{
+  "info": {
+    "_postman_id": "a1e4c9a0-7b3d-4e2f-9c1a-innovatech2026",
+    "name": "Innovatech III - BFF + Microservicios (Completa)",
+    "description": "# Innovatech Solutions - Backend Fullstack III\n\nColeccion generada a partir del codigo fuente real del repositorio (controllers, DTOs, rutas del BFF, docker-compose y SecurityConfig de cada microservicio), no de documentacion externa.\n\n## Arquitectura\n\n```\nCliente -> BFF (Express, puerto 3000) -> Microservicios Spring Boot\n                                          - ms-auth      (8081)\n                                          - ms-proyectos (8082)\n                                          - ms-recursos  (8083)\n                                          - ms-analitica (8084)\n                                          - ms-notif     (8085)\n```\n\nEl BFF centraliza CORS, rate limiting, circuit breakers y reenvio del header Authorization. La mayoria de las pruebas deben hacerse contra el BFF ({{bff_url}}), tal como lo haria el frontend real.\n\n## Carpetas de la coleccion\n\n1. **Autenticacion** - register / login / validate / users (via BFF + 1 health directo)\n2. **Proyectos** - CRUD, asignacion de empleados, notas de avance tipo PR (via BFF + 2 endpoints directos que el BFF no expone: `/manager/{id}` y `/health`)\n3. **Recursos** - CRUD de recursos humanos, disponibilidad, asignacion (via BFF + 2 endpoints directos: `PUT /capacity` y `/health`)\n4. **Notificaciones** - consulta y marcado de leidas (via BFF + 1 health directo)\n5. **Analitica** - metricas y resumen de KPIs (via BFF + 1 health directo)\n6. **BFF - Utilidades** - health check propio del BFF con estado de circuit breakers\n\n## Endpoints que el BFF NO expone (por eso se llaman directo al microservicio)\n\nSe detectaron comparando cada `routes/*.js` del BFF contra cada `*Controller.java`:\n\n- `GET /api/projects/manager/{managerId}` (solo en ms-proyectos, puerto 8082)\n- `GET /api/projects/health` (solo en ms-proyectos, puerto 8082)\n- `PUT /api/resources/capacity?projectId=X` (solo en ms-recursos, puerto 8083)\n- `GET /api/resources/health` (solo en ms-recursos, puerto 8083)\n- `GET /api/auth/health` (solo en ms-auth, puerto 8081)\n- `GET /api/v1/analitica/health` (solo en ms-analitica, puerto 8084)\n- `GET /api/v1/notificaciones/health` (solo en ms-notif, puerto 8085)\n\n## Flujo recomendado para probar desde cero\n\n1. Ejecuta **Registrar usuario (ADMIN)** -> guarda `token` automaticamente\n2. Ejecuta **Registrar usuario (MANAGER)** -> guarda `manager_id` y `manager_token`\n3. Ejecuta **Registrar usuario (EMPLOYEE)** -> guarda `employee_id` y `employee_token`\n4. Con el token de ADMIN activo, crea un proyecto (carpeta Proyectos) -> guarda `project_id`\n5. Asigna el empleado al proyecto\n6. Crea un recurso humano vinculado al mismo `employee_id` -> guarda `resource_id`\n7. Asigna el recurso al proyecto\n8. Revisa metricas, notificaciones y notas de avance generadas\n\n## Roles y permisos (extraidos de JwtExtractor.java y cada Controller)\n\n| Accion | ADMIN | MANAGER | EMPLOYEE |\n|---|---|---|---|\n| Crear/editar/eliminar proyecto | Si | No | No |\n| Listar TODOS los usuarios | Si | No | No |\n| Asignar/desasignar empleado | Si | Si | No |\n| Revisar notas de avance | Si | Si (solo sus proyectos) | No |\n| Agregar nota de avance | Si | Si | Si |\n| Ver proyecto por ID | Si | Solo si es el manager asignado | No |\n| Listar proyectos (GET /api/projects) | Todos | Todos | Solo los asignados a el |\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "bff_url",
+      "value": "http://127.0.0.1:3000",
+      "type": "string",
+      "description": "URL base del BFF (Express). Punto de entrada principal, igual que usaria el frontend."
+    },
+    {
+      "key": "ms_auth_url",
+      "value": "http://127.0.0.1:8081",
+      "type": "string",
+      "description": "URL directa a ms-auth, solo para endpoints que el BFF no expone (ej. /health)."
+    },
+    {
+      "key": "ms_proyectos_url",
+      "value": "http://127.0.0.1:8082",
+      "type": "string",
+      "description": "URL directa a ms-proyectos, solo para endpoints que el BFF no expone."
+    },
+    {
+      "key": "ms_recursos_url",
+      "value": "http://127.0.0.1:8083",
+      "type": "string",
+      "description": "URL directa a ms-recursos, solo para endpoints que el BFF no expone."
+    },
+    {
+      "key": "ms_analitica_url",
+      "value": "http://127.0.0.1:8084",
+      "type": "string",
+      "description": "URL directa a ms-analitica, solo para endpoints que el BFF no expone."
+    },
+    {
+      "key": "ms_notif_url",
+      "value": "http://127.0.0.1:8085",
+      "type": "string",
+      "description": "URL directa a ms-notif, solo para endpoints que el BFF no expone."
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT del usuario ADMIN. Se completa automaticamente al ejecutar Registrar/Login."
+    },
+    {
+      "key": "manager_token",
+      "value": "",
+      "type": "string",
+      "description": "JWT del usuario MANAGER registrado de ejemplo."
+    },
+    {
+      "key": "employee_token",
+      "value": "",
+      "type": "string",
+      "description": "JWT del usuario EMPLOYEE registrado de ejemplo."
+    },
+    {
+      "key": "user_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "manager_id",
+      "value": "2",
+      "type": "string"
+    },
+    {
+      "key": "employee_id",
+      "value": "3",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "note_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "resource_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "notification_id",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticacion (ms-auth)",
+      "item": [
+        {
+          "name": "Registrar usuario (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/auth/register",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Crea un nuevo usuario y retorna su JWT. El rol es opcional; si se omite, ms-auth asigna EMPLOYEE por defecto (ver User.java).\n\nRoles validos: ADMIN, MANAGER, EMPLOYEE.\nPassword minimo 6 caracteres (validacion @Size en RegisterRequest).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Benjamin Valdes\",\n  \"email\": \"benjamin.admin@innovatech.cl\",\n  \"password\": \"secret123\",\n  \"role\": \"ADMIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Captura automática del JWT y variables útiles tras Registro/Login",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.token) {",
+                  "        pm.collectionVariables.set('token', body.token);",
+                  "        console.log('Token guardado en {{token}}');",
+                  "    }",
+                  "    if (body.userId) {",
+                  "        pm.collectionVariables.set('user_id', body.userId);",
+                  "    }",
+                  "    pm.test('Respuesta contiene token JWT', function () {",
+                  "        pm.expect(body.token).to.exist;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar usuario (MANAGER)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/auth/register",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Ejemplo de registro con rol MANAGER, util para probar asignacion de proyectos/notas.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ignacio Munoz\",\n  \"email\": \"ignacio.manager@innovatech.cl\",\n  \"password\": \"secret123\",\n  \"role\": \"MANAGER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('manager_id', body.userId);",
+                  "    pm.collectionVariables.set('manager_token', body.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar usuario (EMPLOYEE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/auth/register",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Ejemplo de registro con rol EMPLOYEE, para probar notas de avance y asignacion a proyectos.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Camila Rojas\",\n  \"email\": \"camila.employee@innovatech.cl\",\n  \"password\": \"secret123\",\n  \"role\": \"EMPLOYEE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('employee_id', body.userId);",
+                  "    pm.collectionVariables.set('employee_token', body.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/auth/login",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Autentica con email/password y retorna el JWT. Guarda el token automaticamente en {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"benjamin.admin@innovatech.cl\",\n  \"password\": \"secret123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Captura automática del JWT y variables útiles tras Registro/Login",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.token) {",
+                  "        pm.collectionVariables.set('token', body.token);",
+                  "        console.log('Token guardado en {{token}}');",
+                  "    }",
+                  "    if (body.userId) {",
+                  "        pm.collectionVariables.set('user_id', body.userId);",
+                  "    }",
+                  "    pm.test('Respuesta contiene token JWT', function () {",
+                  "        pm.expect(body.token).to.exist;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validar token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/auth/validate",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "validate"
+              ]
+            },
+            "description": "Verifica si el JWT actual es valido. Usado internamente por el BFF y otros microservicios, pero tambien expuesto para depuracion manual.\n\nNota: si el microservicio ms-auth no responde, el BFF devuelve un fallback { valid: false } gracias al circuit breaker (ver httpClient.js).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar todos los usuarios (requiere ADMIN)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/auth/users",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "users"
+              ]
+            },
+            "description": "Retorna todos los usuarios del sistema.\n\nIMPORTANTE: en ms-auth/SecurityConfig.java esta ruta exige hasRole('ADMIN'). Con un token MANAGER o EMPLOYEE deberia responder 403."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener usuario por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/auth/users/{{user_id}}",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Retorna el detalle de un usuario especifico. 404 si no existe."
+          },
+          "response": []
+        },
+        {
+          "name": "Health check ms-auth (directo, sin BFF)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ms_auth_url}}/api/auth/health",
+              "host": [
+                "{{ms_auth_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "health"
+              ]
+            },
+            "description": "El BFF NO expone un proxy para este endpoint (revisar authRoutes.js), por eso se llama directo al microservicio en el puerto 8081."
+          },
+          "response": []
+        }
+      ],
+      "description": "Registro, login, validacion de JWT y consulta de usuarios."
+    },
+    {
+      "name": "2. Proyectos (ms-proyectos)",
+      "item": [
+        {
+          "name": "Crear proyecto SOFTWARE (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ]
+            },
+            "description": "Crea un proyecto de tipo SOFTWARE (Factory Method Pattern en el backend).\n\nSolo ADMIN puede crear proyectos (ver ProjectController.createProject -> jwtExtractor.isAdmin). Con otro rol responde 403.\n\nTipos validos: SOFTWARE, CONSULTING, INFRASTRUCTURE.\nEstados validos: PLANNING (default), IN_PROGRESS, ON_HOLD, COMPLETED, CANCELLED.\nCampos especificos de SOFTWARE: techStack, repositoryUrl.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"App Movil Clientes\",\n  \"description\": \"Desarrollo de App en Flutter para clientes finales\",\n  \"type\": \"SOFTWARE\",\n  \"status\": \"PLANNING\",\n  \"managerId\": \"{{manager_id}}\",\n  \"startDate\": \"2026-07-15\",\n  \"endDate\": \"2026-12-20\",\n  \"techStack\": \"Flutter, Node.js, PostgreSQL\",\n  \"repositoryUrl\": \"https://github.com/innovatech/app-movil-clientes\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('project_id', body.id);",
+                  "    console.log('project_id guardado: ' + body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear proyecto CONSULTING (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ]
+            },
+            "description": "Crea un proyecto de tipo CONSULTING.\n\nCampos especificos de CONSULTING: clientName, slaDays.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Auditoria de Seguridad\",\n  \"description\": \"Revision anual de protocolos de acceso\",\n  \"type\": \"CONSULTING\",\n  \"status\": \"IN_PROGRESS\",\n  \"managerId\": \"{{manager_id}}\",\n  \"startDate\": \"2026-07-01\",\n  \"endDate\": \"2026-08-15\",\n  \"clientName\": \"Banco Andes S.A.\",\n  \"slaDays\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Crear proyecto INFRASTRUCTURE (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ]
+            },
+            "description": "Crea un proyecto de tipo INFRASTRUCTURE.\n\nCampos especificos de INFRASTRUCTURE: cloudProvider, budgetUsd.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Migracion a la Nube\",\n  \"description\": \"Traslado de servidores locales a AWS\",\n  \"type\": \"INFRASTRUCTURE\",\n  \"status\": \"PLANNING\",\n  \"managerId\": \"{{manager_id}}\",\n  \"startDate\": \"2026-08-01\",\n  \"endDate\": \"2027-01-31\",\n  \"cloudProvider\": \"AWS\",\n  \"budgetUsd\": 45000.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar todos los proyectos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ]
+            },
+            "description": "ADMIN/MANAGER ven todos los proyectos. EMPLOYEE solo ve los proyectos donde esta asignado (logica en ProjectController.getAllProjects segun el rol del JWT)."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar proyectos filtrados por status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects?status=IN_PROGRESS",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "IN_PROGRESS"
+                }
+              ]
+            },
+            "description": "Filtra por estado usando query param `status`.\nValores validos: PLANNING, IN_PROGRESS, ON_HOLD, COMPLETED, CANCELLED.\nNota: este filtro solo aplica para ADMIN/MANAGER; si el token es EMPLOYEE, el backend ignora el filtro y devuelve solo sus proyectos asignados."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar proyectos filtrados por type",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects?type=SOFTWARE",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "SOFTWARE"
+                }
+              ]
+            },
+            "description": "Filtra por tipo usando query param `type`.\nValores validos: SOFTWARE, CONSULTING, INFRASTRUCTURE."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener proyecto por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}"
+              ]
+            },
+            "description": "Retorna el detalle de un proyecto.\n\nRestriccion de acceso: solo ADMIN o el manager asignado a ese proyecto pueden verlo (403 en cualquier otro caso)."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar proyecto (ADMIN)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}"
+              ]
+            },
+            "description": "Edicion completa (nombre, descripcion, status). Solo ADMIN.\nA diferencia del POST, este DTO (UpdateProjectRequest) no valida campos obligatorios: se puede enviar solo el subconjunto que se quiere cambiar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"App Movil Clientes v2\",\n  \"description\": \"Desarrollo de App en Flutter - alcance ampliado con modulo de pagos\",\n  \"status\": \"IN_PROGRESS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cambiar estado del proyecto (ADMIN)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}/status",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}",
+                "status"
+              ]
+            },
+            "description": "Actualiza unicamente el status. Solo ADMIN.\nValores validos: PLANNING, IN_PROGRESS, ON_HOLD, COMPLETED, CANCELLED.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Asignar empleado a proyecto (ADMIN/MANAGER)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}/assign",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}",
+                "assign"
+              ]
+            },
+            "description": "Asigna un empleado real (debe existir en ms-auth con rol EMPLOYEE).\nPermitido para ADMIN o MANAGER (jwtExtractor.isAdminOrManager).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"{{employee_id}}\",\n  \"employeeName\": \"Camila Rojas\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Desasignar empleado de proyecto (ADMIN/MANAGER)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}/assign",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}",
+                "assign"
+              ]
+            },
+            "description": "Quita la asignacion de empleado del proyecto. Permitido para ADMIN o MANAGER."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar proyectos por manager",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{ms_proyectos_url}}/api/projects/manager/{{manager_id}}",
+              "host": [
+                "{{ms_proyectos_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "manager",
+                "{{manager_id}}"
+              ]
+            },
+            "description": "*** Endpoint NO expuesto por el BFF *** (no existe en projectRoutes.js). Se llama directo al microservicio ms-proyectos, puerto 8082.\n\nSolo accesible por ADMIN o por el propio manager consultado."
+          },
+          "response": []
+        },
+        {
+          "name": "Agregar nota de avance (EMPLOYEE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}/notes",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}",
+                "notes"
+              ]
+            },
+            "description": "Agrega una nota de avance. Cualquier rol autenticado puede llamarla, pero conceptualmente la usan los EMPLOYEE asignados. Queda en estado PENDING hasta que un ADMIN/MANAGER la revise (similar a un Pull Request).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Se completo la integracion con el modulo de pagos, pendiente QA.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('note_id', body.id);",
+                  "    console.log('note_id guardado: ' + body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar notas de un proyecto",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}/notes",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}",
+                "notes"
+              ]
+            },
+            "description": "Retorna todas las notas de avance del proyecto, sin restriccion de rol."
+          },
+          "response": []
+        },
+        {
+          "name": "Revisar nota de avance - Aprobar (ADMIN/MANAGER)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}/notes/{{note_id}}/review",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}",
+                "notes",
+                "{{note_id}}",
+                "review"
+              ]
+            },
+            "description": "Aprueba o rechaza una nota. ADMIN revisa cualquier proyecto; MANAGER solo los que gestiona. Valores validos de status: APPROVED, REJECTED.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\",\n  \"reviewComment\": \"Buen avance, aprobado para pasar a QA.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Revisar nota de avance - Rechazar (ADMIN/MANAGER)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}/notes/{{note_id}}/review",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}",
+                "notes",
+                "{{note_id}}",
+                "review"
+              ]
+            },
+            "description": "Ejemplo de rechazo de nota, con comentario obligatorio recomendado.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"REJECTED\",\n  \"reviewComment\": \"Falta documentar los endpoints nuevos antes de aprobar.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar proyecto (ADMIN)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/projects/{{project_id}}",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{project_id}}"
+              ]
+            },
+            "description": "Elimina el proyecto de forma permanente. Solo ADMIN. Responde 204 sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "Health check ms-proyectos (directo, sin BFF)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ms_proyectos_url}}/api/projects/health",
+              "host": [
+                "{{ms_proyectos_url}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "health"
+              ]
+            },
+            "description": "Unico endpoint publico (permitAll) segun SecurityConfig.java de ms-proyectos. El BFF no expone un proxy propio, se llama directo al puerto 8082.\nDevuelve tambien totalProjects."
+          },
+          "response": []
+        }
+      ],
+      "description": "CRUD de proyectos, asignacion de empleados y notas de avance tipo Pull Request."
+    },
+    {
+      "name": "3. Recursos (ms-recursos)",
+      "item": [
+        {
+          "name": "Crear recurso humano",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/resources",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "resources"
+              ]
+            },
+            "description": "Registra un nuevo recurso humano.\n\nRoles validos (ResourceRole): DEVELOPER (default), DESIGNER, QA, DEVOPS, MANAGER, CONSULTANT.\nEl campo userId (opcional) correlaciona este recurso con un usuario real de ms-auth, usado para eventos Kafka automaticos.\nEl email debe ser unico (409 si ya existe).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Camila Rojas\",\n  \"email\": \"camila.employee@innovatech.cl\",\n  \"department\": \"Ingenieria\",\n  \"role\": \"DEVELOPER\",\n  \"skills\": \"Java,Spring,React,PostgreSQL\",\n  \"userId\": \"{{employee_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('resource_id', body.id);",
+                  "    console.log('resource_id guardado: ' + body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar todos los recursos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/resources",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "resources"
+              ]
+            },
+            "description": "Retorna todos los recursos registrados en el sistema."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar recursos disponibles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/resources/available",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "available"
+              ]
+            },
+            "description": "Retorna solo los recursos con available=true.\nIMPORTANTE (orden de rutas): en ResourceController esta ruta esta declarada ANTES que /{id}, por eso 'available' nunca se interpreta como un ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar recursos por departamento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/resources/department/Ingenieria",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "department",
+                "Ingenieria"
+              ]
+            },
+            "description": "Filtra recursos por el departamento indicado en el path (string libre, no enum).\nEjemplos usados en el seed: Ingenieria, Finanzas, Operaciones, Diseño."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener recurso por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/resources/{{resource_id}}",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "{{resource_id}}"
+              ]
+            },
+            "description": "Retorna el detalle de un recurso especifico. 404 si no existe."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar disponibilidad de un recurso",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/resources/{{resource_id}}/availability",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "{{resource_id}}",
+                "availability"
+              ]
+            },
+            "description": "Cambia el flag available del recurso (true/false). No usa Bean Validation, body simple.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"available\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Asignar recurso a un proyecto",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/resources/{{resource_id}}/assign",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "{{resource_id}}",
+                "assign"
+              ]
+            },
+            "description": "Asocia el recurso a un proyecto y lo marca automaticamente como no disponible (available=false) en el service.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{project_id}}\",\n  \"projectName\": \"App Movil Clientes\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Liberar recursos de un proyecto (directo, sin BFF)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{ms_recursos_url}}/api/resources/capacity?projectId={{project_id}}",
+              "host": [
+                "{{ms_recursos_url}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "capacity"
+              ],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "{{project_id}}"
+                }
+              ]
+            },
+            "description": "*** Endpoint NO expuesto por el BFF *** (no existe en resourceRoutes.js). Se llama directo al microservicio ms-recursos, puerto 8083.\n\nMarca como disponibles TODOS los recursos que estaban asignados al proyecto indicado via query param projectId (no path param, no body). Retorna cuantos recursos fueron liberados."
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar recurso",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/resources/{{resource_id}}",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "{{resource_id}}"
+              ]
+            },
+            "description": "Elimina el recurso de forma permanente. Responde 204 sin body."
+          },
+          "response": []
+        },
+        {
+          "name": "Health check ms-recursos (directo, sin BFF)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ms_recursos_url}}/api/resources/health",
+              "host": [
+                "{{ms_recursos_url}}"
+              ],
+              "path": [
+                "api",
+                "resources",
+                "health"
+              ]
+            },
+            "description": "El BFF no expone un proxy propio para este endpoint. Se llama directo al puerto 8083.\n\nNota de arquitectura: a diferencia de ms-proyectos, el SecurityConfig de ms-recursos hace permitAll() en TODAS sus rutas internamente (confia en que el BFF/Kong ya validaron el JWT antes de reenviar la peticion)."
+          },
+          "response": []
+        }
+      ],
+      "description": "CRUD de recursos humanos, disponibilidad y asignacion a proyectos."
+    },
+    {
+      "name": "4. Notificaciones (ms-notif)",
+      "item": [
+        {
+          "name": "Listar notificaciones de un proyecto",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/v1/notificaciones/proyecto/{{project_id}}",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notificaciones",
+                "proyecto",
+                "{{project_id}}"
+              ]
+            },
+            "description": "Retorna todas las notificaciones generadas por eventos Kafka de ese proyecto (creacion, cambio de estado, asignaciones, etc). Puede venir vacia []."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar notificaciones no leidas de un proyecto",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/v1/notificaciones/proyecto/{{project_id}}/no-leidas",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notificaciones",
+                "proyecto",
+                "{{project_id}}",
+                "no-leidas"
+              ]
+            },
+            "description": "Igual que el anterior, pero filtrado a solo las no leidas."
+          },
+          "response": []
+        },
+        {
+          "name": "Marcar notificacion como leida",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/v1/notificaciones/{{notification_id}}/read",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notificaciones",
+                "{{notification_id}}",
+                "read"
+              ]
+            },
+            "description": "Marca una notificacion puntual como leida. Responde 204 sin body.\nNecesitas reemplazar {{notification_id}} por un ID real obtenido del listado de notificaciones del proyecto."
+          },
+          "response": []
+        },
+        {
+          "name": "Health check ms-notif (directo, sin BFF)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ms_notif_url}}/api/v1/notificaciones/health",
+              "host": [
+                "{{ms_notif_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notificaciones",
+                "health"
+              ]
+            },
+            "description": "El BFF no expone proxy para este endpoint. Se llama directo al puerto 8085."
+          },
+          "response": []
+        }
+      ],
+      "description": "Notificaciones generadas por eventos Kafka de proyectos."
+    },
+    {
+      "name": "5. Analitica (ms-analitica)",
+      "item": [
+        {
+          "name": "Listar metricas generales",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/v1/analitica/metricas",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "analitica",
+                "metricas"
+              ]
+            },
+            "description": "Retorna las metricas (KpiResponse) de todos los proyectos. Se alimentan via Kafka desde ms-proyectos (ProjectEventConsumer)."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener metricas de un proyecto especifico",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/v1/analitica/metricas/proyecto/{{project_id}}",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "analitica",
+                "metricas",
+                "proyecto",
+                "{{project_id}}"
+              ]
+            },
+            "description": "Retorna el KPI de un solo proyecto. 404 si aun no existen metricas para ese ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Resumen ejecutivo de KPIs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{bff_url}}/api/v1/analitica/resumen",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "analitica",
+                "resumen"
+              ]
+            },
+            "description": "Resumen agregado: total de proyectos, promedio de completitud, proyectos activos y completados (KpiSummaryResponse).\n\nNota: este endpoint SI esta expuesto por el BFF (analiticaRoutes.js) pero no aparecia en la coleccion original del repo; se agrego aqui."
+          },
+          "response": []
+        },
+        {
+          "name": "Health check ms-analitica (directo, sin BFF)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ms_analitica_url}}/api/v1/analitica/health",
+              "host": [
+                "{{ms_analitica_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "analitica",
+                "health"
+              ]
+            },
+            "description": "El BFF no expone proxy para este endpoint. Se llama directo al puerto 8084."
+          },
+          "response": []
+        }
+      ],
+      "description": "Metricas y KPIs agregados por proyecto."
+    },
+    {
+      "name": "6. BFF - Utilidades",
+      "item": [
+        {
+          "name": "Health check del BFF (con estado de Circuit Breakers)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{bff_url}}/health",
+              "host": [
+                "{{bff_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Endpoint propio del BFF (no hace proxy a ningun microservicio). Muy util para depurar: devuelve el estado de cada Circuit Breaker (CLOSED/OPEN/HALF_OPEN) hacia ms-auth, ms-proyectos, ms-recursos, ms-analitica y ms-notif.\n\nSi un microservicio esta caido, su breaker pasa a OPEN tras N fallos consecutivos (threshold configurable, default 5) y el BFF empieza a responder 503 inmediatamente sin intentar la llamada real, hasta que expire el timeout."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints propios del BFF, no relacionados a un microservicio especifico."
+    }
+  ]
+}
